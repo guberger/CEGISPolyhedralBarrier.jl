@@ -114,8 +114,6 @@ function _compute_mpf(
         end
     end
 
-    bins = []
-
     for evid in pos_evids
         af = pfs[evid.loc].afs[evid.i]
         _add_constr_prob!(prob, model, af, r, evid)
@@ -123,7 +121,6 @@ function _compute_mpf(
 
     for evid in lie_evids
         bin = @variable(model, binary=true)
-        push!(bins, bin)
         af1 = pfs[evid.loc1].afs[evid.i1]
         for af2 in pfs[evid.loc2].afs
             _add_constr_prob!(prob, model, af1, af2, r, bin, evid)

@@ -2,138 +2,85 @@
 
 @enum StatusCode begin
     NOT_SOLVED = 0
-    LYAPUNOV_FOUND = 1
-    LYAPUNOV_INFEASIBLE = 2
+    BARRIER_FOUND = 1
+    BARRIER_INFEASIBLE = 2
     RADIUS_TOO_SMALL = 3
     MAX_ITER_REACHED = 4
 end
 
 ## Learner
 
-struct Witness
-    loc::Int
-    point::Point
-end
-
 struct Learner
     nvar::Int
     nloc::Int
     sys::System
-    τ::Float64
+    iset::InitSet
+    uset::UnsafeSet
     ϵ::Float64
     δ::Float64
-    witnesses::Vector{Witness}
     tols::Dict{Symbol,Float64}
+    params::Dict{Symbol,Float64}
 end
 
 function Learner(
-        nvar::Int, nloc::Int, sys::System, τ::Float64, ϵ::Float64, δ::Float64
+        nvar::Int, nloc::Int,
+        sys::System, iset::InitSet, uset::UnsafeSet,
+        ϵ::Float64, δ::Float64
     )
     tols = Dict([
         :rad => eps(1.0),
         :pos => -eps(1.0),
-        :liedisc => -eps(1.0),
-        :liecont => -eps(1.0),
-        :norm => eps(1.0)
+        :lie => -eps(1.0)
     ])
-    return Learner(nvar, nloc, sys, τ, ϵ, δ, Witness[], tols)
+    params = Dict([
+        :offmax => 1e3,
+        :rmax_gen => 1e4,
+        :bigM => 1e3,
+        :xmax => 1e3,
+        :rmax_verif => 1e2
+    ])
+    return Learner(nvar, nloc, sys, iset, uset, ϵ, δ, tols, params)
 end
 
-set_tol!(lear::Learner, s::Symbol, tol::Float64) = (lear.tols[s] = tol)
-
-function add_witness!(lear::Learner, loc::Int, point::Point)
-    npoint = norm(point, Inf)
-    if npoint < lear.tols[:norm]*lear.nvar
-        error(string("Point norm close to zero: ", npoint))
-    end
-    @assert 1 ≤ loc ≤ lear.nloc
-    push!(lear.witnesses, Witness(loc, point/npoint))
-end
+set_tol!(lear::Learner, s::Symbol, v::Float64) = (lear.tols[s] = v)
+set_param!(lear::Learner, s::Symbol, v::Float64) = (lear.params[s] = v)
 
 ## Learn Barrier
 
-function _add_evidences!(gen, sys, τ, wit)
-    point1 = wit.point
-    loc1 = wit.loc
-    i1 = add_lf!(gen, loc1)
-    npoint1 = norm(point1, Inf) # new
-    # npoint = norm(point) # old
-    add_evidence!(gen, PosEvidence(loc1, i1, point1, npoint1))
-    for piece in sys.disc_pieces
+function _add_evidences_pos!(gen, state)
+    i = add_af!(gen, state.loc)
+    add_evidence!(gen, PosEvidence(state.loc, i, state.point))
+end
+
+function _add_evidences_neg!(gen, state)
+    add_evidence!(gen, NegEvidence(state.loc, state.point))
+end
+
+function _add_evidences_lie!(gen, sys, state)
+    point1 = state.point
+    loc1 = state.loc
+    i1 = add_af!(gen, loc1)
+    for piece in sys.pieces
         !(loc1 == piece.loc1 && point1 ∈ piece.domain) && continue
-        A = piece.A
-        point2 = A*point1
+        point2 = piece.A*point1 + piece.b
         loc2 = piece.loc2
-        npoint2 = norm(point2, Inf) # new
-        # nderiv = norm(deriv) # old
-        ndiff = norm(point2 - point1, Inf)
-        nA = opnorm(A, Inf)
-        nD = opnorm(A - I, Inf)
-        add_evidence!(gen, LieDiscEvidence(
-            loc1, i1, point1, loc2, point2, npoint1, npoint2, ndiff, nA, nD
-        ))
-    end
-    for piece in sys.cont_pieces
-        !(loc1 == piece.loc && point1 ∈ piece.domain) && continue
-        A = piece.A
-        diff = τ*(A*point1)
-        point2 = point1 + diff
-        npoint2 = norm(point2, Inf) # new
-        # nderiv = norm(deriv) # old
-        ndiff = norm(diff, Inf)
-        nA = opnorm(I + τ*A, Inf)
-        nD = opnorm(A, Inf)*τ
-        add_evidence!(gen, LieContEvidence(
-            loc1, i1, point1, point2, npoint1, npoint2, ndiff, nA, nD, τ
-        ))
+        nA = opnorm(piece.A, Inf)
+        add_evidence!(gen, LieEvidence(loc1, i1, point1, loc2, point2, nA))
     end
 end
 
-function _add_predicates!(verif, nvar, sys)
-    for piece in sys.disc_pieces
-        add_predicate!(verif, PosPredicate(nvar, piece.domain, piece.loc1))
-        add_predicate!(verif, LieDiscPredicate(
-            nvar, piece.domain, piece.loc1, piece.A, piece.loc2
-        ))
-    end
-    for piece in sys.cont_pieces
-        add_predicate!(verif, PosPredicate(nvar, piece.domain, piece.loc))
-        add_predicate!(verif, LieContPredicate(
-            nvar, piece.domain, piece.loc, piece.A
-        ))
+function _add_predicates_pos!(verif, nvar, uset)
+    for region in uset.regions
+        add_predicate!(verif, PosPredicate(nvar, region.domain, region.loc))
     end
 end
 
-function _verify_with_exit(
-        verif, mpf, tol_pos, tol_liedisc, tol_liecont, solver, do_print
-    )
-    # new Eccentricity V1:
-    do_print && print("|--- Verify pos... ")
-    x, r_pos, loc = verify_pos(verif, mpf, solver)
-    if r_pos > tol_pos
-        do_print && println("CE found: ", x, ", ", r_pos, ", ", loc)
-        return x, loc, r_pos, -Inf, -Inf
-    else
-        do_print && println("No CE found: ", r_pos)
-    end # end new Eccentricity V1
-    # r_pos = Inf # new Eccentricity V2
-    do_print && print("|--- Verify lie disc... ")
-    x, r_liedisc, loc = verify_lie_disc(verif, mpf, solver)
-    if r_liedisc > tol_liedisc
-        do_print && println("CE found: ", x, ", ", r_liedisc, ", ", loc)
-        return x, loc
-    else
-        do_print && println("No CE found: ", r_liedisc)
+function _add_predicates_lie!(verif, nvar, sys)
+    for piece in sys.pieces
+        add_predicate!(verif, LiePredicate(
+            nvar, piece.domain, piece.loc1, piece.A, piece.b, piece.loc2
+        ))
     end
-    do_print && print("|--- Verify lie cont... ")
-    x, r_liecont, loc = verify_lie_cont(verif, mpf, solver)
-    if r_liecont > tol_liecont
-        do_print && println("CE found: ", x, ", ", r_liecont, ", ", loc)
-        return x, loc
-    else
-        do_print && println("No CE found: ", r_liecont)
-    end
-    return Float64[], 0
 end
 
 snapshot(::Nothing, ::Any) = nothing
@@ -141,18 +88,14 @@ snapshot(::Nothing, ::Any) = nothing
 struct TraceRecorder
     mpf_list::Vector{MultiPolyFunc}
     pos_evids_list::Vector{Vector{PosEvidence}}
-    liedisc_evids_list::Vector{Vector{LieDiscEvidence}}
-    liecont_evids_list::Vector{Vector{LieContEvidence}}
+    lie_evids_list::Vector{Vector{LieEvidence}}
 end
 
-TraceRecorder() = TraceRecorder(
-    MultiPolyFunc[], PosEvidence[], LieDiscEvidence[], LieContEvidence[]
-)
+TraceRecorder() = TraceRecorder(MultiPolyFunc[], PosEvidence[], LieEvidence[])
 
 function snapshot(tracerec::TraceRecorder, gen::Generator)
     push!(tracerec.pos_evids_list, copy(gen.pos_evids))
-    push!(tracerec.liedisc_evids_list, copy(gen.liedisc_evids))
-    push!(tracerec.liecont_evids_list, copy(gen.liecont_evids))
+    push!(tracerec.lie_evids_list, copy(gen.lie_evids))
 end
 
 function snapshot(tracerec::TraceRecorder, mpf::MultiPolyFunc)
@@ -164,16 +107,20 @@ function learn_lyapunov!(
         do_print=true, tracerec=nothing
     )
     gen = Generator(lear.nvar, lear.nloc)
-    for wit in lear.witnesses
-        _add_evidences!(gen, lear.sys, lear.τ, wit)
+    for state in lear.iset.states
+        _add_evidences_neg!(gen, state)
     end
-    snapshot(tracerec, gen)
 
     verif = Verifier()
-    _add_predicates!(verif, lear.nvar, lear.sys)
+    _add_predicates_pos!(verif, lear.nvar, lear.uset)
+    _add_predicates_lie!(verif, lear.nvar, lear.sys)
 
     mpf = MultiPolyFunc(lear.nloc)
     iter = 0
+    params = lear.params
+    M, offmax, radmax = params[:bigM], params[:offmax], params[:rmax_gen]
+    xmax, objmax = params[:xmax], params[:rmax_verif]
+    tol_pos, tol_lie = lear.tols[:pos], lear.tols[:lie]
 
     while true
         iter += 1
@@ -182,19 +129,10 @@ function learn_lyapunov!(
             println(string("Max iter exceeded: ", iter))
             return MAX_ITER_REACHED, mpf, iter
         end
+        snapshot(tracerec, gen)
 
-        # Feasibility check:
-        slack = compute_mpf_feasibility(gen, lear.ϵ, lear.δ, solver_gen)[2]
-        if slack < 0
-            println(string(
-                "System does not admit a Barrier function with parameters: ",
-                "ϵ: ", lear.ϵ, ", δ: ", lear.δ, ", slack ", slack
-            ))
-            return LYAPUNOV_INFEASIBLE, mpf, iter
-        end # end Feasibility check
-
-        # mpf, r = compute_mpf_chebyshev(gen, 1/lear.θ, solver)
-        mpf, r = compute_mpf_evidence(gen, solver_gen) # test
+        # Generator
+        mpf, r = compute_mpf_evidence(gen, M, offmax, radmax, solver_gen)
         snapshot(tracerec, mpf)
         if do_print
             println("|--- radius: ", r)
@@ -204,27 +142,28 @@ function learn_lyapunov!(
             return RADIUS_TOO_SMALL, mpf, iter
         end
 
-        # new Eccentricity V2:
-        # for k = 1:lear.nvar
-        #     vec_side = [(k_ == k ? 1.0 : 0.0) for k_ = 1:lear.nvar]
-        #     push!(lfs, vec_side/(2*lear.ϵ))
-        #     push!(lfs, -vec_side/(2*lear.ϵ))
-        # end # end new Eccentricity V2
-
-        x, loc = _verify_with_exit(
-            verif, mpf,
-            lear.tols[:pos], lear.tols[:liedisc], lear.tols[:liecont],
-            solver_verif, do_print
-        )
-        if isempty(x)
-            println("No CE found")
-            println("Valid CLF: terminated")
-            return LYAPUNOV_FOUND, mpf, iter
+        # Verifier
+        do_print && print("|--- Verify pos... ")
+        obj, x, loc = verify_pos(verif, mpf, xmax, objmax, solver_verif)
+        if obj > tol_pos
+            do_print && println("CE found: ", x, ", ", obj, ", ", loc)
+            _add_evidences_pos!(gen, State(loc, x))
+            continue
+        else
+            do_print && println("No CE found: ", obj)
         end
-
-        point = x/norm(x, Inf)
-        wit = Witness(loc, point)
-        _add_evidences!(gen, lear.sys, lear.τ, wit)
-        snapshot(tracerec, gen)
+        do_print && print("|--- Verify lie... ")
+        obj, x, loc = verify_lie(verif, mpf, xmax, objmax, solver_verif)
+        if obj > tol_lie
+            do_print && println("CE found: ", x, ", ", obj, ", ", loc)
+            _add_evidences_lie!(gen, lear.sys, State(loc, x))
+            continue
+        else
+            do_print && println("No CE found: ", obj)
+        end
+        
+        println("No CE found")
+        println("Valid CLF: terminated")
+        return BARRIER_FOUND, mpf, iter
     end
 end
