@@ -3,8 +3,7 @@ module CEGISPolyhedralBarrier
 using LinearAlgebra
 using JuMP
 
-_RSC_ = JuMP.MathOptInterface.ResultStatusCode
-_TSC_ = JuMP.MathOptInterface.TerminationStatusCode
+_status(model) = (primal_status(model), termination_status(model))
 _VT_ = Vector{Float64}
 _MT_ = Matrix{Float64}
 Point = _VT_
@@ -22,12 +21,14 @@ struct PolyFunc
 end
 
 PolyFunc() = PolyFunc(AffForm[])
+add_af!(pf::PolyFunc, af::AffForm) = push!(pf.afs, af)
 
 struct MultiPolyFunc
     pfs::Vector{PolyFunc}
 end
 
 MultiPolyFunc(nloc::Int) = MultiPolyFunc([PolyFunc() for loc = 1:nloc])
+add_af!(mpf::MultiPolyFunc, loc::Int, af::AffForm) = add_af!(mpf.pfs[loc], af)
 
 # struct Piece
 #     domain::Polyhedron
@@ -47,7 +48,7 @@ MultiPolyFunc(nloc::Int) = MultiPolyFunc([PolyFunc() for loc = 1:nloc])
 # end
 
 include("generator.jl")
-# include("verifier.jl")
+include("verifier.jl")
 # include("learner.jl")
 
 end # module

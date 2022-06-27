@@ -58,7 +58,7 @@ struct _PF
     afs::Vector{_AF}
 end
 
-function _add_vars!(model, nvar, nafs, offmax)
+function _add_vars!(model, nvar, nafs, offmax, rmax)
     pfs = Vector{_PF}(undef, length(nafs))
     for (loc, naf) in enumerate(nafs)
         pfs[loc] = _PF(Vector{_AF}(undef, naf))
@@ -72,7 +72,7 @@ function _add_vars!(model, nvar, nafs, offmax)
             @constraint(model, sum(alin) ≤ 1)
         end
     end
-    r = @variable(model, upper_bound=10*offmax)
+    r = @variable(model, upper_bound=rmax)
     return pfs, r
 end
 
@@ -93,18 +93,20 @@ _value(af::_AF) = AffForm(value.(af.lin), value(af.off))
 abstract type GeneratorProblem end
 
 _compute_mpf(
-    prob::GeneratorProblem, gen::Generator, offmax::Float64, solver
+    prob::GeneratorProblem, gen::Generator, offmax, rmax, solver
 ) = _compute_mpf(
     prob, gen.nvar, gen.nafs,
-    gen.neg_evids, gen.pos_evids, gen.lie_evids, offmax, solver
+    gen.neg_evids, gen.pos_evids, gen.lie_evids,
+    offmax, rmax, solver
 )
 
 function _compute_mpf(
         prob::GeneratorProblem, nvar, nafs,
-        neg_evids, pos_evids, lie_evids, offmax, solver
+        neg_evids, pos_evids, lie_evids,
+        offmax, rmax, solver
     )
     model = solver()
-    pfs, r = _add_vars!(model, nvar, nafs, offmax)
+    pfs, r = _add_vars!(model, nvar, nafs, offmax, rmax)
 
     for evid in neg_evids
         for af in pfs[evid.loc].afs
@@ -132,8 +134,7 @@ function _compute_mpf(
 
     optimize!(model)
 
-    if !(primal_status(model) == _RSC_(1) &&
-            termination_status(model) == _TSC_(1))
+    if !(_status(model) == (FEASIBLE_POINT, OPTIMAL))
         error(string(
             "Generator: not optimal: ",
             primal_status(model), " ",
@@ -174,13 +175,9 @@ function _add_constr_prob!(
     _add_lie_constr(model, af2, r, bin, evid.point2, 1, prob.M, prob.δ)
 end
 
-function compute_mpf_feasibility(
-        gen::Generator,
-        ϵ::Float64, δ::Float64, M::Float64,
-        solver; offmax::Float64=1e3
-    )
+function compute_mpf_feasibility(gen::Generator, ϵ, δ, M, offmax, rmax, solver)
     prob = GeneratorFeasibility(ϵ, δ, M)
-    return _compute_mpf(prob, gen, offmax, solver)
+    return _compute_mpf(prob, gen, offmax, rmax, solver)
 end
 
 ## Evidence
@@ -202,9 +199,7 @@ function _add_constr_prob!(
     _add_lie_constr(model, af2, r, bin, evid.point2, evid.nA, prob.M, 0)
 end
 
-function compute_mpf_evidence(
-        gen::Generator, M::Float64, solver; offmax::Float64=1e3
-    )
+function compute_mpf_evidence(gen::Generator, M, offmax, rmax, solver)
     prob = GeneratorEvidence(M)
-    return _compute_mpf(prob, gen, offmax, solver)
+    return _compute_mpf(prob, gen, offmax, rmax, solver)
 end
