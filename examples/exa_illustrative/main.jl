@@ -8,6 +8,7 @@ using PyPlot
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
 Polyhedron = CPB.Polyhedron
+PolyFunc = CPB.PolyFunc
 System = CPB.System
 InitSet = CPB.InitSet
 UnsafeSet = CPB.UnsafeSet
@@ -97,13 +98,13 @@ for loc = 1:nloc
 end
 
 for region in uset.regions
-    halfspaces = [(h.a, h.β) for h in region.domain.halfspaces]
-    plot_hrep!(ax_[region.loc], halfspaces, fc="red", ec="red")
+    A, b = _to_vector_ineq(region.domain, 2)
+    plot_hrep!(ax_[region.loc], A, b, fc="red", ec="red")
 end
 
 for piece in sys.pieces
-    halfspaces = [(h.a, h.β) for h in piece.domain.halfspaces]
-    plot_hrep!(ax_[piece.loc1], halfspaces, fa=0.1, ec="none")
+    A, b = _to_vector_ineq(piece.domain, 2)
+    plot_hrep!(ax_[piece.loc1], A, b, fa=0.1, ec="none")
 end
 
 ## Learner
@@ -116,11 +117,9 @@ status, mpf = CPB.learn_lyapunov!(lear, 1000, solver, solver)
 display(status)
 
 for loc = 1:nloc
-    halfspaces = [(h.a, h.β) for h in box.halfspaces]
-    for af in mpf.pfs[loc].afs
-        push!(halfspaces, (af.lin, af.off))
-    end
-    plot_hrep!(ax_[loc], halfspaces)
+    Abox, bbox = _to_vector_ineq(box, 2)
+    Apf, bpf = _to_vector_ineq(mpf.pfs[loc], 2)
+    plot_hrep!(ax_[loc], vcat(Abox, Apf), vcat(bbox, bpf))
 end
 
 end # module
