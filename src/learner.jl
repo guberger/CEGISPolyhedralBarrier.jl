@@ -23,9 +23,7 @@ struct Learner
 end
 
 function Learner(
-        nvar::Int, nloc::Int,
-        sys::System, iset::InitSet, uset::UnsafeSet,
-        ϵ::Float64, δ::Float64
+        nvar::Int, nloc::Int, sys::System, iset::InitSet, uset::UnsafeSet, ϵ, δ
     )
     tols = Dict([
         :rad => eps(1.0),
@@ -42,8 +40,8 @@ function Learner(
     return Learner(nvar, nloc, sys, iset, uset, ϵ, δ, tols, params)
 end
 
-set_tol!(lear::Learner, s::Symbol, v::Float64) = (lear.tols[s] = v)
-set_param!(lear::Learner, s::Symbol, v::Float64) = (lear.params[s] = v)
+set_tol!(lear::Learner, s::Symbol, v) = (lear.tols[s] = v)
+set_param!(lear::Learner, s::Symbol, v) = (lear.params[s] = v)
 
 ## Learn Barrier
 

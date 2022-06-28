@@ -24,9 +24,9 @@ nvar = 2
 ## Empty
 nloc = 1
 gen = CPB.Generator(nvar, nloc)
-M = 1.0
+M = 1
 
-rf = CPB.compute_mpf_feasibility(gen, 1e5, 1.0, M, 1e3, 1e4, solver)[2]
+rf = CPB.compute_mpf_feasibility(gen, 1e5, 1, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 
 @testset "compute mpf empty" begin
@@ -38,7 +38,7 @@ end
 ## Pos
 nloc = 1
 gen = CPB.Generator(nvar, nloc)
-M = 8.0
+M = 8
 
 CPB.add_af!(gen, 1)
 CPB.add_evidence!(gen, NegEvidence(1, [0, 0]))
@@ -46,7 +46,7 @@ point = [0.5, 0]
 CPB.add_evidence!(gen, PosEvidence(1, 1, point))
 
 ϵ = 1e5
-δ = 1.0
+δ = 1
 rf = CPB.compute_mpf_feasibility(gen, ϵ, δ, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 
@@ -59,7 +59,7 @@ end
 ## Lie
 nloc = 1
 gen = CPB.Generator(nvar, nloc)
-M = 8.0
+M = 8
 
 CPB.add_af!(gen, 1)
 CPB.add_evidence!(gen, NegEvidence(1, [0, 0]))
@@ -69,7 +69,7 @@ point2 = [4, 0]
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 1, point2, 0.0))
 
 ϵ = 1e5
-δ = 1.0
+δ = 1
 rf = CPB.compute_mpf_feasibility(gen, ϵ, δ, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 
@@ -82,7 +82,7 @@ end
 ## Lie
 nloc = 1
 gen = CPB.Generator(nvar, nloc)
-M = 32.0
+M = 32
 
 CPB.add_af!(gen, 1)
 CPB.add_evidence!(gen, NegEvidence(1, [0, 0]))
@@ -92,7 +92,7 @@ point2 = [4, 0]
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 1, point2, 0.0))
 
 ϵ = 1e5
-δ = 1.0
+δ = 1
 rf = CPB.compute_mpf_feasibility(gen, ϵ, δ, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 
@@ -105,7 +105,7 @@ end
 ## Pos and Lie: 2 wits #1
 nloc = 2
 gen = CPB.Generator(nvar, nloc)
-M = 32.0
+M = 32
 
 CPB.add_af!(gen, 1)
 CPB.add_af!(gen, 2)
@@ -118,7 +118,7 @@ nA = 0.5
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 2, point2, nA))
 
 ϵ = 1e5
-δ = 1.0
+δ = 1
 rf = CPB.compute_mpf_feasibility(gen, ϵ, δ, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 
@@ -131,7 +131,7 @@ end
 ## Pos and Lie: 2 wits #2
 nloc = 2
 gen = CPB.Generator(nvar, nloc)
-M = 32.0
+M = 32
 
 CPB.add_af!(gen, 1)
 CPB.add_af!(gen, 2)
@@ -144,7 +144,7 @@ nA = 0.5
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 2, point2, nA))
 
 ϵ = 1e5
-δ = 1.0
+δ = 1
 rf = CPB.compute_mpf_feasibility(gen, ϵ, δ, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 
@@ -157,7 +157,7 @@ end
 ## Pos and Lie: 2 wits #3
 nloc = 2
 gen = CPB.Generator(nvar, nloc)
-M = 32.0
+M = 32
 
 CPB.add_af!(gen, 1)
 CPB.add_af!(gen, 1)
@@ -169,12 +169,12 @@ CPB.add_evidence!(gen, PosEvidence(1, 2, [4, 0]))
 point1 = [1, 0]
 point2 = [1, 0]
 point3 = [2, 0]
-nA = 1.0
+nA = 1
 CPB.add_evidence!(gen, LieEvidence(1, 2, point1, 2, point2, nA))
 CPB.add_evidence!(gen, LieEvidence(2, 1, point2, 1, point3, nA))
 
 ϵ = 1e5
-δ = 1.0
+δ = 1
 rf = CPB.compute_mpf_feasibility(gen, ϵ, δ, M, 1e3, 1e4, solver)[2]
 mpf, re = CPB.compute_mpf_evidence(gen, M, 1e3, 1e4, solver)
 

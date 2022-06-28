@@ -22,13 +22,14 @@ end
 
 PolyFunc() = PolyFunc(AffForm[])
 add_af!(pf::PolyFunc, af::AffForm) = push!(pf.afs, af)
+add_af!(pf::PolyFunc, lin, off) = add_af!(pf, AffForm(lin, off))
 
 struct MultiPolyFunc
     pfs::Vector{PolyFunc}
 end
 
 MultiPolyFunc(nloc::Int) = MultiPolyFunc([PolyFunc() for loc = 1:nloc])
-add_af!(mpf::MultiPolyFunc, loc::Int, af::AffForm) = add_af!(mpf.pfs[loc], af)
+add_af!(mpf::MultiPolyFunc, loc::Int, af_...) = add_af!(mpf.pfs[loc], af_...)
 
 struct Piece
     domain::Polyhedron
@@ -43,10 +44,10 @@ struct System
 end
 
 System() = System(Piece[])
-
-function add_piece!(sys::System, domain, loc1, A, b, loc2)
-    push!(sys.pieces, Piece(domain, loc1, A, b, loc2))
-end
+add_piece!(sys::System, piece::Piece) = push!(sys.pieces, piece)
+add_piece!(sys::System, domain, loc1, A, b, loc2) = add_piece!(
+    sys, Piece(domain, loc1, A, b, loc2)
+)
 
 struct State
     loc::Int
@@ -64,6 +65,7 @@ end
 
 InitSet() = InitSet(State[])
 add_state!(iset::InitSet, state::State) = push!(iset.states, state)
+add_state!(iset::InitSet, loc, point) = add_state!(iset, State(loc, point))
 
 struct UnsafeSet
     regions::Vector{Region}
@@ -71,6 +73,9 @@ end
 
 UnsafeSet() = UnsafeSet(Region[])
 add_region!(uset::UnsafeSet, region::Region) = push!(uset.regions, region)
+add_region!(uset::UnsafeSet, loc, domain) = add_region!(
+    uset, Region(loc, domain)
+)
 
 include("generator.jl")
 include("verifier.jl")

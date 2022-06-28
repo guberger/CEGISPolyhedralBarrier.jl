@@ -9,7 +9,6 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 Polyhedron = CPB.Polyhedron
-AffForm = CPB.AffForm
 PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
 PosPredicate = CPB.PosPredicate
@@ -25,13 +24,13 @@ nvar = 2
 ## Pos false #1 #2 #3
 verif = CPB.Verifier()
 domain = Polyhedron()
-CPB.add_halfspace!(domain, [1.0, 1.0], -1)
+CPB.add_halfspace!(domain, [1, 1], -1)
 CPB.add_predicate!(verif, PosPredicate(nvar, domain, 1))
 
 mpf = MultiPolyFunc(2)
-afs = [AffForm([-0.5, 0.5], -0.5), AffForm([1.0, 0.0], 0)]
-for af in afs
-    CPB.add_af!(mpf, 1, af)
+afs_ = [([-0.5, 0.5], -0.5), ([1, 0], 0)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
 end
 
 xmax = 1e3
@@ -45,7 +44,7 @@ r, x, loc = CPB.verify_pos(verif, mpf, xmax, 1e4, solver)
 end
 
 domain = Polyhedron()
-CPB.add_af!(mpf, 2, AffForm([4.0, 0.0], 1))
+CPB.add_af!(mpf, 2, [4, 0], 1)
 CPB.add_predicate!(verif, PosPredicate(nvar, domain, 2))
 
 r, x, loc = CPB.verify_pos(verif, mpf, xmax, 1e4, solver)
@@ -55,7 +54,7 @@ r, x, loc = CPB.verify_pos(verif, mpf, xmax, 1e4, solver)
     @test loc == 2
 end
 
-CPB.add_af!(mpf, 2, AffForm([4.0, 0.0], 4000))
+CPB.add_af!(mpf, 2, [4, 0], 4000)
 
 r, x, loc = CPB.verify_pos(verif, mpf, xmax, 1e4, solver)
 
@@ -67,13 +66,13 @@ end
 # Pos true
 verif = CPB.Verifier()
 domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1.0, -1.0], 1)
+CPB.add_halfspace!(domain, [-1, -1], 1)
 CPB.add_predicate!(verif, PosPredicate(nvar, domain, 1))
 
 mpf = MultiPolyFunc(2)
-afs = [AffForm([-0.5, 0.5], 0.5), AffForm([1.0, 0.0], 0)]
-for af in afs
-    CPB.add_af!(mpf, 1, af)
+afs_ = [([-0.5, 0.5], 0.5), ([1, 0], 0)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
 end
 
 xmax = 1e3
@@ -94,9 +93,9 @@ b = [1, 0]
 CPB.add_predicate!(verif, LiePredicate(nvar, domain, 1, A, b, 1))
 
 mpf = MultiPolyFunc(2)
-afs = [AffForm([-1.0, 0.0], -1), AffForm([1.0, 0.0], -1)]
-for af in afs
-    CPB.add_af!(mpf, 1, af)
+afs_ = [([-1.0, 0.0], -1), ([1.0, 0.0], -1)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
 end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
@@ -111,18 +110,15 @@ end
 ## Lie disc false #2
 verif = CPB.Verifier()
 domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1.0, 0.0], 0)
+CPB.add_halfspace!(domain, [-1, 0], 0)
 A = [0.0 0.5; 0.5 0.1]
 b = [0, 1]
 CPB.add_predicate!(verif, LiePredicate(nvar, domain, 1, A, b, 1))
 
 mpf = MultiPolyFunc(2)
-afs = [
-    AffForm([-1.0, 0.0], -1), AffForm([1.0, 0.0], -1),
-    AffForm([0.0, -1.0], -1), AffForm([0.0, 1.0], -1)
-]
-for af in afs
-    CPB.add_af!(mpf, 1, af)
+afs_ = [([-1, 0], -1), ([1, 0], -1), ([0, -1], -1), ([0, 1], -1)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
 end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
@@ -137,18 +133,15 @@ end
 ## Lie disc true #1
 verif = CPB.Verifier()
 domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1.0, 0.0], 0)
+CPB.add_halfspace!(domain, [-1, 0], 0)
 A = [0.0 0.5; 0.5 0.1]
-b = [0, -0.5]
+b = [0.0, -0.5]
 CPB.add_predicate!(verif, LiePredicate(nvar, domain, 1, A, b, 1))
 
 mpf = MultiPolyFunc(2)
-afs = [
-    AffForm([-1.0, 0.0], -1), AffForm([1.0, 0.0], -1),
-    AffForm([0.0, -1.0], -1), AffForm([0.0, 1.0], -1)
-]
-for af in afs
-    CPB.add_af!(mpf, 1, af)
+afs_ = [([-1, 0], -1), ([1, 0], -1), ([0, -1], -1), ([0, 1], -1)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
 end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
@@ -163,19 +156,17 @@ end
 ## Lie disc multiple #1
 verif = CPB.Verifier()
 domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1.0, -1.0], -1)
-CPB.add_halfspace!(domain, [-1.0, 1.0], -1)
+CPB.add_halfspace!(domain, [-1, -1], -1)
+CPB.add_halfspace!(domain, [-1, 1], -1)
 A = [0.5 -0.25; 0.1 0.5]
-b = [0, 0.5]
+b = [0.0, 0.5]
 CPB.add_predicate!(verif, LiePredicate(nvar, domain, 2, A, b, 1))
 
 mpf = MultiPolyFunc(2)
-afs = [
-    AffForm([1.0, 0.0], -1), AffForm([0.0, -1.0], -1), AffForm([0.0, 1.0], -1)
-]
-for af in afs
-    CPB.add_af!(mpf, 1, af)
-    CPB.add_af!(mpf, 2, af)
+afs_ = [([1, 0], -1), ([0, -1], -1), ([0, 1], -1)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
+    CPB.add_af!(mpf, 2, af_...)
 end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
@@ -188,13 +179,11 @@ r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 end
 
 mpf = MultiPolyFunc(2)
-afs = [
-    AffForm([1.0, 0.0], -1), AffForm([0.0, -1.0], -1), AffForm([0.0, 1.0], -1)
-]
-for af in afs
-    CPB.add_af!(mpf, 2, af)
+afs_ = [([1, 0], -1), ([0, -1], -1), ([0, 1], -1)]
+for af_ in afs_
+    CPB.add_af!(mpf, 2, af_...)
 end
-CPB.add_af!(mpf, 1, afs[1])
+CPB.add_af!(mpf, 1, afs_[1]...)
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 

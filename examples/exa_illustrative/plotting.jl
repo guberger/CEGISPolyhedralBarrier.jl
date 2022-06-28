@@ -1,51 +1,35 @@
-ContPiece = CEGISPolyhedralBarrier.PieceCont
-PolyFunc = CEGISPolyhedralBarrier.PolyFunc
-MultiPolyFunc = CEGISPolyhedralBarrier.MultiPolyFunc
-Polyhedron = CEGISPolyhedralBarrier.Polyhedron
-PosEvidence = CEGISPolyhedralBarrier.PosEvidence
-LieContEvidence = CEGISPolyhedralBarrier.LieContEvidence
-_eval = CEGISPolyhedralBarrier._eval
-_norm(pf::PolyFunc, x) = maximum(lf -> _eval(lf, x), pf.lfs)
-
-function plot_field!(ax, piece::ContPiece, xlims, ylims, ngrid; c="gray")
-    x1_grid = range(xlims..., length=ngrid)
-    x2_grid = range(ylims..., length=ngrid)
-    X = map(x -> [x...], Iterators.product(x1_grid, x2_grid))
-    X1 = getindex.(X, 1)
-    X2 = getindex.(X, 2)
-    D = Matrix{Vector{Float64}}(undef, ngrid, ngrid)
-    for (k, x) in enumerate(X)
-        if x ∈ piece.domain
-            D[k] = piece.A*x
-        else
-            D[k] = [NaN, NaN]
-        end
-    end
-    D1 = getindex.(D, 1)
-    D2 = getindex.(D, 2)
-    ax.quiver(X1, X2, D1, D2, color=c)
-end
-
-function plot_level!(
-        ax, pf::PolyFunc, radmax;
-        fc="gold", fa=0.5, ec="gold", ew=2.0
+function plot_hrep!(
+        ax, halfspaces; fc="blue", fa=0.5, ec="blue", ew=2.0
     )
-    p = Polyhedron()
-    for lf in pf.lfs
-        CPB.add_halfspace!(p, lf.lin, -1)
-    end
-    verts = compute_vertices_2d(p, zeros(2))
-    verts_radius = maximum(vert -> norm(vert, Inf), verts)
-    scaling = radmax/verts_radius
-    verts_scaled = map(vert -> vert*scaling, verts)
-    polylist = matplotlib.collections.PolyCollection([verts_scaled])
+    verts = compute_vertices_hrep(halfspaces)
+    isempty(verts) && return
+    polylist = matplotlib.collections.PolyCollection((verts,))
     fca = matplotlib.colors.colorConverter.to_rgba(fc, alpha=fa)
     polylist.set_facecolor(fca)
     polylist.set_edgecolor(ec)
     polylist.set_linewidth(ew)
     ax.add_collection(polylist)
-    return scaling
 end
+
+function plot_vrep!(
+        ax, points; fc="blue", fa=0.5, ec="blue", ew=2.0
+    )
+    isempty(points) && return
+    verts = compute_vertices_vrep(points)
+    polylist = matplotlib.collections.PolyCollection((verts,))
+    fca = matplotlib.colors.colorConverter.to_rgba(fc, alpha=fa)
+    polylist.set_facecolor(fca)
+    polylist.set_edgecolor(ec)
+    polylist.set_linewidth(ew)
+    ax.add_collection(polylist)
+end
+
+function plot_point!(ax, point; mc="blue", ms=15)
+    ax.plot(point..., marker=".", ms=ms, c=mc)
+end
+
+#=
+
 
 function plot_evids!(
         ax, evids::Vector{PosEvidence}, mpf::MultiPolyFunc, level;
@@ -110,3 +94,4 @@ function plot_traj!(ax, sys, x0, dt, nstep; c="purple", ms=15, lw=2.5)
     end
     ax.plot(getindex.(x_seq, 1), getindex.(x_seq, 2), lw=lw, c=c)
 end
+=#

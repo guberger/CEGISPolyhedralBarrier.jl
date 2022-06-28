@@ -6,11 +6,19 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 
-poly = CPB.Polyhedron()
-CPB.add_halfspace!(poly, [1.0, 1.0], 1.0)
+p1 = CPB.Polyhedron()
+CPB.add_halfspace!(p1, [1, 1], 1)
 
 @testset "polyhedron" begin
-    @test [1, -2.1] ∈ poly
+    @test [1, -2.1] ∈ p1
+end
+
+p2 = CPB.Polyhedron()
+CPB.add_halfspace!(p2, [-1, -1], -2)
+p3 = p1 ∩ p2
+
+@testset "polyhedron" begin
+    @test [0, -2.1] ∉ p3
 end
 
 nothing
