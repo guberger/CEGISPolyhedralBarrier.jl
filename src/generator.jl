@@ -131,14 +131,7 @@ function _compute_mpf(
 
     optimize!(model)
 
-    if !(_status(model) == (FEASIBLE_POINT, OPTIMAL))
-        error(string(
-            "Generator: not optimal: ",
-            primal_status(model), " ",
-            dual_status(model), " ",
-            termination_status(model)
-        ))
-    end
+    @assert _status(model) == (FEASIBLE_POINT, OPTIMAL)
 
     return MultiPolyFunc([
         PolyFunc([_value(af) for af in pf.afs]) for pf in pfs

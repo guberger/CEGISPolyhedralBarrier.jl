@@ -51,7 +51,7 @@ CPB.add_region!(uset, 2, udom)
 
 lear = CPB.Learner(nvar, nloc, sys, iset, uset, 0, 0)
 CPB.set_tol!(lear, :rad, 0)
-CPB.set_tol!(lear, :bigM, 1e3)
+CPB.set_param!(lear, :bigM, 1e3)
 
 status, = CPB.learn_lyapunov!(lear, 1, solver, solver)
 
@@ -59,10 +59,16 @@ status, = CPB.learn_lyapunov!(lear, 1, solver, solver)
     @test status == CPB.MAX_ITER_REACHED
 end
 
-status, = CPB.learn_lyapunov!(lear, 3, solver, solver)
+tracerec = CPB.TraceRecorder()
+status, = CPB.learn_lyapunov!(
+    lear, 3, solver, solver, tracerec=tracerec, do_print=false
+)
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
+    @test length(tracerec.mpf_list) == 3
+    @test length(tracerec.pos_evids_list[3]) == 1
+    @test length(tracerec.lie_evids_list[3]) == 1
 end
 
 domain = Polyhedron()

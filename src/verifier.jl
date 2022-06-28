@@ -52,16 +52,10 @@ function _verify!(
 
     if _status(model) == (FEASIBLE_POINT, OPTIMAL)
         return objective_value(model), value.(x), true
-    elseif _status(model) == (NO_SOLUTION, INFEASIBLE)
-        return -Inf, Float64[], false
-    else
-        error(string(
-            "Verifier: neither feasible or infeasible: ",
-            primal_status(model), " ",
-            dual_status(model), " ",
-            termination_status(model)
-        ))
     end
+
+    @assert _status(model) == (NO_SOLUTION, INFEASIBLE)
+    return -Inf, Float64[], false
 end
 
 ## Verif Pos
