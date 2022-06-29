@@ -1,4 +1,4 @@
-module ExampleIllustrative
+module ExampleSubwayHard
 
 using LinearAlgebra
 using JuMP

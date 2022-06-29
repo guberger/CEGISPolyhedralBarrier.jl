@@ -1,4 +1,4 @@
-module ExampleIllustrative
+module ExampleSeeSaw
 
 using LinearAlgebra
 using JuMP
