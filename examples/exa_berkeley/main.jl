@@ -1,4 +1,4 @@
-module ExampleIllustrative
+module ExampleBerkeley
 
 using LinearAlgebra
 using JuMP
