@@ -54,18 +54,18 @@ struct State
     point::Point
 end
 
+struct InitialSet
+    states::Vector{State}
+end
+
+InitialSet() = InitialSet(State[])
+add_state!(iset::InitialSet, state::State) = push!(iset.states, state)
+add_state!(iset::InitialSet, loc, point) = add_state!(iset, State(loc, point))
+
 struct Region
     loc::Int
     domain::Polyhedron
 end
-
-struct InitSet
-    states::Vector{State}
-end
-
-InitSet() = InitSet(State[])
-add_state!(iset::InitSet, state::State) = push!(iset.states, state)
-add_state!(iset::InitSet, loc, point) = add_state!(iset, State(loc, point))
 
 struct UnsafeSet
     regions::Vector{Region}

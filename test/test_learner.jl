@@ -10,7 +10,7 @@ end
 CPB = CEGISPolyhedralBarrier
 Polyhedron = CPB.Polyhedron
 System = CPB.System
-InitSet = CPB.InitSet
+InitialSet = CPB.InitialSet
 UnsafeSet = CPB.UnsafeSet
 
 function HiGHS._check_ret(ret::Cint) 
@@ -40,7 +40,7 @@ A = reshape([-1], 1, 1)
 b = [1]
 CPB.add_piece!(sys, domain, 1, A, b, 2)
 
-iset = InitSet()
+iset = InitialSet()
 CPB.add_state!(iset, 1, [-1])
 CPB.add_state!(iset, 1, [1])
 

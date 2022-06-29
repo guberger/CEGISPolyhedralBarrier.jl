@@ -21,6 +21,28 @@ solver() = Model(optimizer_with_attributes(
 ## Parameters
 nvar = 2
 
+## Pos infeasible
+verif = CPB.Verifier()
+domain = Polyhedron()
+CPB.add_halfspace!(domain, [1, 1], -1)
+CPB.add_halfspace!(domain, [-1, -1], 2)
+CPB.add_predicate!(verif, PosPredicate(nvar, domain, 1))
+
+mpf = MultiPolyFunc(2)
+afs_ = [([-0.5, 0.5], -0.5), ([1, 0], 0)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
+end
+
+xmax = 1e3
+r, x, loc = CPB.verify_pos(verif, mpf, xmax, 1e4, solver)
+
+@testset "verify pos infeasible" begin
+    @test r == -Inf
+    @test isempty(x)
+    @test loc == 0
+end
+
 ## Pos false #1 #2 #3
 verif = CPB.Verifier()
 domain = Polyhedron()
@@ -85,7 +107,28 @@ r, x, loc = CPB.verify_pos(verif, mpf, xmax, 1e4, solver)
     @test loc == 1
 end
 
-## Lie disc false #1
+## Lie infeasible
+verif = CPB.Verifier()
+domain = Polyhedron()
+A = [0.5 0.0; 1.0 1.0]
+b = [1, 0]
+CPB.add_predicate!(verif, LiePredicate(nvar, domain, 1, A, b, 1))
+
+mpf = MultiPolyFunc(2)
+afs_ = [([-1.0, 0.0], 1), ([1.0, 0.0], 1)]
+for af_ in afs_
+    CPB.add_af!(mpf, 1, af_...)
+end
+
+r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
+
+@testset "verify lie infeasible" begin
+    @test r == -Inf
+    @test isempty(x)
+    @test loc == 0
+end
+
+## Lie false #1
 verif = CPB.Verifier()
 domain = Polyhedron()
 A = [0.5 0.0; 1.0 1.0]
@@ -100,14 +143,14 @@ end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 
-@testset "verify lie disc false #1" begin
+@testset "verify lie false #1" begin
     @test r ≈ 1/2
     @test x[1] ≈ 1
     @test x ∈ domain
     @test loc == 1
 end
 
-## Lie disc false #2
+## Lie false #2
 verif = CPB.Verifier()
 domain = Polyhedron()
 CPB.add_halfspace!(domain, [-1, 0], 0)
@@ -123,14 +166,14 @@ end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 
-@testset "verify lie disc false #2" begin
+@testset "verify lie false #2" begin
     @test r ≈ 0.6
     @test x ≈ [1, 1]
     @test x ∈ domain
     @test loc == 1
 end
 
-## Lie disc true #1
+## Lie true #1
 verif = CPB.Verifier()
 domain = Polyhedron()
 CPB.add_halfspace!(domain, [-1, 0], 0)
@@ -146,14 +189,14 @@ end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 
-@testset "verify lie disc false #2" begin
+@testset "verify lie false #2" begin
     @test r ≈ -0.4
     @test x ≈ [0, -1]
     @test x ∈ domain
     @test loc == 1
 end
 
-## Lie disc multiple #1
+## Lie multiple #1
 verif = CPB.Verifier()
 domain = Polyhedron()
 CPB.add_halfspace!(domain, [-1, -1], -1)
@@ -171,7 +214,7 @@ end
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 
-@testset "verify lie disc multiple #1" begin
+@testset "verify lie multiple #1" begin
     @test r ≈ 0.1
     @test x ≈ [1, 1]
     @test x ∈ domain
@@ -187,7 +230,7 @@ CPB.add_af!(mpf, 1, afs_[1]...)
 
 r, x, loc = CPB.verify_lie(verif, mpf, 1e3, 1e4, solver)
 
-@testset "verify lie disc multiple #2" begin
+@testset "verify lie multiple #2" begin
     @test r ≈ -0.25
     @test x ≈ [1, -1]
     @test x ∈ domain

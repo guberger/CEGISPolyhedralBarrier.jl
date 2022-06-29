@@ -14,7 +14,7 @@ struct Learner
     nvar::Int
     nloc::Int
     sys::System
-    iset::InitSet
+    iset::InitialSet
     uset::UnsafeSet
     ϵ::Float64
     δ::Float64
@@ -23,12 +23,14 @@ struct Learner
 end
 
 function Learner(
-        nvar::Int, nloc::Int, sys::System, iset::InitSet, uset::UnsafeSet, ϵ, δ
+        nvar::Int, nloc::Int, sys::System,
+        iset::InitialSet, uset::UnsafeSet, ϵ, δ
     )
     tols = Dict([
         :rad => eps(1.0),
         :pos => -eps(1.0),
-        :lie => -eps(1.0)
+        :lie => -eps(1.0),
+        :dom => eps(1.0)
     ])
     params = Dict([
         :offmax => 1e3,
@@ -54,12 +56,13 @@ function _add_evidences_neg!(gen, state)
     add_evidence!(gen, NegEvidence(state.loc, state.point))
 end
 
-function _add_evidences_lie!(gen, sys, state)
+function _add_evidences_lie!(gen, sys, state, tol_dom)
     point1 = state.point
     loc1 = state.loc
     i1 = add_af!(gen, loc1)
     for piece in sys.pieces
-        !(loc1 == piece.loc1 && point1 ∈ piece.domain) && continue
+        loc1 != piece.loc1 && continue
+        !near(point1, piece.domain, tol_dom) && continue
         point2 = piece.A*point1 + piece.b
         loc2 = piece.loc2
         nA = opnorm(piece.A, Inf)
@@ -118,7 +121,7 @@ function learn_lyapunov!(
     params = lear.params
     M, offmax, radmax = params[:bigM], params[:offmax], params[:rmax_gen]
     xmax, objmax = params[:xmax], params[:rmax_verif]
-    tol_pos, tol_lie = lear.tols[:pos], lear.tols[:lie]
+    tol_dom = lear.tols[:dom]
 
     while true
         iter += 1
@@ -143,8 +146,8 @@ function learn_lyapunov!(
         # Verifier
         do_print && print("|--- Verify pos... ")
         obj, x, loc = verify_pos(verif, mpf, xmax, objmax, solver_verif)
-        if obj > tol_pos
-            do_print && println("CE found: ", x, ", ", obj, ", ", loc)
+        if obj > lear.tols[:pos]
+            do_print && println("CE found: ", x, ", ", loc, ", ", obj)
             _add_evidences_pos!(gen, State(loc, x))
             continue
         else
@@ -152,9 +155,9 @@ function learn_lyapunov!(
         end
         do_print && print("|--- Verify lie... ")
         obj, x, loc = verify_lie(verif, mpf, xmax, objmax, solver_verif)
-        if obj > tol_lie
-            do_print && println("CE found: ", x, ", ", obj, ", ", loc)
-            _add_evidences_lie!(gen, lear.sys, State(loc, x))
+        if obj > lear.tols[:lie]
+            do_print && println("CE found: ", x, ", ", loc, ", ", obj)
+            _add_evidences_lie!(gen, lear.sys, State(loc, x), tol_dom)
             continue
         else
             do_print && println("No CE found: ", obj)

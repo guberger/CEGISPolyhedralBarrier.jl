@@ -7,16 +7,18 @@ using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
+Halfspace = CPB.Halfspace
+AffForm = CPB.AffForm
+Point = CPB.Point
 Polyhedron = CPB.Polyhedron
 PolyFunc = CPB.PolyFunc
 System = CPB.System
-InitSet = CPB.InitSet
+InitialSet = CPB.InitialSet
 UnsafeSet = CPB.UnsafeSet
 State = CPB.State
 Region = CPB.Region
 
-include("../utils/geometry.jl")
-include("plotting.jl")
+include("../utils/plotting2D.jl")
 
 const GUROBI_ENV = Gurobi.Env()
 solver() = Model(optimizer_with_attributes(
@@ -38,7 +40,7 @@ sys = System()
 domain = Polyhedron()
 CPB.add_halfspace!(domain, [0, -1], 0.5)
 A = [0.5 0.0; 0.0 0.5]
-b = [0.0, 0.0]
+b = [0, 0]
 CPB.add_piece!(sys, domain ∩ box, 1, A, b, 2)
 
 domain = Polyhedron()
@@ -47,7 +49,7 @@ A = Matrix{Bool}(I, 2, 2)
 b = [0.0, 0.5]
 CPB.add_piece!(sys, domain ∩ box, 2, A, b, 1)
 
-iset = InitSet()
+iset = InitialSet()
 init_points = ([-1, -1], [-1, 1], [1, -1], [1, 1])
 for point in init_points
     CPB.add_state!(iset, 1, point)
@@ -83,28 +85,25 @@ for ax in ax_
     ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 end
 
-idom = Polyhedron()
-CPB.add_halfspace!(idom, [-1, 0], -1)
-CPB.add_halfspace!(idom, [1, 0], -1)
-CPB.add_halfspace!(idom, [0, -1], -1)
-CPB.add_halfspace!(idom, [0, 1], -1)
-
 for state in iset.states
     plot_point!(ax_[state.loc], state.point, mc="gold")
 end
+
 for loc = 1:nloc
     points = [state.point for state in iset.states if state.loc == loc]
     plot_vrep!(ax_[loc], points, fc="yellow", ec="yellow")
 end
 
 for region in uset.regions
-    A, b = _to_vector_ineq(region.domain, 2)
-    plot_hrep!(ax_[region.loc], A, b, fc="red", ec="red")
+    plot_hrep!(
+        ax_[region.loc], region.domain.halfspaces, nothing, fc="red", ec="red"
+    )
 end
 
 for piece in sys.pieces
-    A, b = _to_vector_ineq(piece.domain, 2)
-    plot_hrep!(ax_[piece.loc1], A, b, fa=0.1, ec="none")
+    plot_hrep!(
+        ax_[piece.loc1], piece.domain.halfspaces, nothing, fa=0.1, ec="none"
+    )
 end
 
 ## Learner
@@ -117,9 +116,7 @@ status, mpf = CPB.learn_lyapunov!(lear, 1000, solver, solver)
 display(status)
 
 for loc = 1:nloc
-    Abox, bbox = _to_vector_ineq(box, 2)
-    Apf, bpf = _to_vector_ineq(mpf.pfs[loc], 2)
-    plot_hrep!(ax_[loc], vcat(Abox, Apf), vcat(bbox, bpf))
+    plot_level!(ax_[loc], mpf.pfs[loc].afs, [(-10, -10), (10, 10)])
 end
 
 end # module
