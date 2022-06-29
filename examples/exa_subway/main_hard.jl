@@ -7,18 +7,12 @@ using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
-Halfspace = CPB.Halfspace
-AffForm = CPB.AffForm
-Point = CPB.Point
 Polyhedron = CPB.Polyhedron
-PolyFunc = CPB.PolyFunc
 System = CPB.System
 InitialSet = CPB.InitialSet
 UnsafeSet = CPB.UnsafeSet
 State = CPB.State
 Region = CPB.Region
-
-include("../utils/plotting2D.jl")
 
 const GUROBI_ENV = Gurobi.Env()
 solver() = Model(optimizer_with_attributes(
@@ -115,7 +109,6 @@ CPB.add_piece!(sys, domain ∩ Inv2, 3, _RES_, b, 1)
 domain = Polyhedron()
 CPB.add_halfspace!(domain, [-1, 1, 0], 0) # b ≥ s
 CPB.add_halfspace!(domain, [0, 0, -1], 10) # d = 10
-CPB.add_halfspace!(domain, [0, 0, 1], -10)
 b = [0, 0, 0]
 CPB.add_piece!(sys, domain ∩ Inv2, 3, _RES_, b, 4)
 
@@ -139,15 +132,15 @@ CPB.add_state!(iset, 3, [10, 0, 0])
 
 uset = UnsafeSet()
 udom = Polyhedron()
-CPB.add_halfspace!(udom, [-1, 1, 0], 35) # b ≥ s + 35
-CPB.add_region!(uset, 1, udom ∩ Inv1)
-CPB.add_region!(uset, 2, udom ∩ Inv1)
+CPB.add_halfspace!(udom, [-1, 1, 0], 21) # b ≥ s + 21
+# CPB.add_region!(uset, 1, udom ∩ Inv1)
+# CPB.add_region!(uset, 2, udom ∩ Inv1)
 CPB.add_region!(uset, 3, udom ∩ Inv2)
-udom = Polyhedron()
-CPB.add_halfspace!(udom, [1, -1, 0], 35) # b ≤ s - 35
-CPB.add_region!(uset, 1, udom ∩ Inv1)
-CPB.add_region!(uset, 2, udom ∩ Inv1)
-CPB.add_region!(uset, 3, udom ∩ Inv2)
+# udom = Polyhedron()
+# CPB.add_halfspace!(udom, [1, -1, 0], 21) # b ≤ s - 21
+# CPB.add_region!(uset, 1, udom ∩ Inv1)
+# CPB.add_region!(uset, 2, udom ∩ Inv1)
+# CPB.add_region!(uset, 3, udom ∩ Inv2)
 
 lear = CPB.Learner(nvar, nloc, sys, iset, uset, 0, 0)
 CPB.set_tol!(lear, :rad, 1e-4)
