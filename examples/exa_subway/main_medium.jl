@@ -146,7 +146,7 @@ status, mpf, niter = CPB.learn_lyapunov!(lear, 1000, solver, solver)
 # with unsafe set `|b - s| ≤ 15`: 176 iterations
 # `tol_dom = 1e-6`
 
-# with unsafe set `|b - s| ≤ 15`: 267 iterations
+# with unsafe set `|b - s| ≤ 11`: 267 iterations
 # `tol_dom = 1e-6`
 
 display(status)
