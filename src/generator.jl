@@ -58,14 +58,14 @@ struct _MPF{N,M}
     pfs::NTuple{M,_PF{N}}
 end
 
-function _add_vars!(model, ::Val{N}, nafs::NTuple{M,Int}) where {N,M}
+function _add_vars!(model, ::Val{N}, βmax, nafs::NTuple{M,Int}) where {N,M}
     pfs = map(naf -> _PF{N}(naf), nafs)
     for (loc, naf) in enumerate(nafs)
         for i = 1:naf
             a = SVector(ntuple(
                 k -> @variable(model, lower_bound=-1, upper_bound=1), Val(N)
             ))
-            β = @variable(model, lower_bound=-100, upper_bound=100)
+            β = @variable(model, lower_bound=-βmax, upper_bound=βmax)
             pfs[loc].afs[i] = _AF(a, β)
         end
     end
@@ -90,10 +90,10 @@ _value(af::_AF) = AffForm(value.(af.a), value(af.β))
 abstract type GeneratorProblem end
 
 function _compute_mpf(
-        prob::GeneratorProblem, gen::Generator{N}, solver
+        prob::GeneratorProblem, gen::Generator{N}, βmax, solver
     ) where N
     model = solver()
-    mpf, r = _add_vars!(model, Val(N), gen.nafs)
+    mpf, r = _add_vars!(model, Val(N), βmax, gen.nafs)
 
     for evid in gen.neg_evids
         for af in mpf.pfs[evid.loc].afs
@@ -152,9 +152,9 @@ function _add_constr_prob!(
     _add_lie_constr(model, af2, r, bin, evid.point2, 1, prob.M, prob.ϵ)
 end
 
-function compute_mpf_feasibility(gen::Generator, ϵ, M, solver)
+function compute_mpf_feasibility(gen::Generator, ϵ, M, βmax, solver)
     prob = GeneratorFeasibility(ϵ, M)
-    return _compute_mpf(prob, gen, solver)
+    return _compute_mpf(prob, gen, βmax, solver)
 end
 
 ## Evidence
@@ -182,7 +182,7 @@ function _add_constr_prob!(
     _add_lie_constr(model, af2, r, bin, evid.point2, evid.nA, prob.M, 0)
 end
 
-function compute_mpf_evidence(gen::Generator, M, solver)
+function compute_mpf_evidence(gen::Generator, M, βmax, solver)
     prob = GeneratorEvidence(M)
-    return _compute_mpf(prob, gen, solver)
+    return _compute_mpf(prob, gen, βmax, solver)
 end

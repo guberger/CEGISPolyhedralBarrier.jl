@@ -19,12 +19,14 @@ solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
 ))
 
+βmax = 100
+
 ## Empty
 gen = CPB.Generator{2}((0,))
 M = 1
 
-rf = CPB.compute_mpf_feasibility(gen, 1e-5, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, 1e-5, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf empty" begin
     @test rf > 0
@@ -40,8 +42,8 @@ CPB.add_evidence!(gen, NegEvidence(1, SVector(0.0, 0.0)))
 CPB.add_evidence!(gen, PosEvidence(1, 1, SVector(0.5, 0.0)))
 
 ϵ = 1e-2
-rf = CPB.compute_mpf_feasibility(gen, ϵ, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, ϵ, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf pos" begin
     @test rf ≈ 0.5/2 - ϵ
@@ -60,8 +62,8 @@ point2 = @SVector [4.0, 0.0]
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 1, point2, 0.0))
 
 ϵ = 1e-2
-rf = CPB.compute_mpf_feasibility(gen, ϵ, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, ϵ, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf lie" begin
     @test rf ≈ 2 - ϵ
@@ -80,8 +82,8 @@ point2 = @SVector [4.0, 0.0]
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 1, point2, 0.0))
 
 ϵ = 1e-2
-rf = CPB.compute_mpf_feasibility(gen, ϵ, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, ϵ, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf lie" begin
     @test rf ≈ 3 - ϵ
@@ -102,8 +104,8 @@ nA = 0.5
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 2, point2, nA))
 
 ϵ = 1e-2
-rf = CPB.compute_mpf_feasibility(gen, ϵ, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, ϵ, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf pos and lie: 2 wits #1" begin
     @test rf ≈ 1 - ϵ
@@ -124,8 +126,8 @@ nA = 0.5
 CPB.add_evidence!(gen, LieEvidence(1, 1, point1, 2, point2, nA))
 
 ϵ = 1e-2
-rf = CPB.compute_mpf_feasibility(gen, ϵ, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, ϵ, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf pos and lie: 2 wits #2" begin
     @test rf ≈ 1 - ϵ
@@ -149,8 +151,8 @@ CPB.add_evidence!(gen, LieEvidence(1, 2, point1, 2, point2, nA))
 CPB.add_evidence!(gen, LieEvidence(2, 1, point2, 1, point3, nA))
 
 ϵ = 1e-2
-rf = CPB.compute_mpf_feasibility(gen, ϵ, M, solver)[2]
-mpf, re = CPB.compute_mpf_evidence(gen, M, solver)
+rf = CPB.compute_mpf_feasibility(gen, ϵ, M, βmax, solver)[2]
+mpf, re = CPB.compute_mpf_evidence(gen, M, βmax, solver)
 
 @testset "compute mpf pos and lie: 2 wits #3" begin
     @test rf ≈ 1 - ϵ

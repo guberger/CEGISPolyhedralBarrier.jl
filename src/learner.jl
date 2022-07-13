@@ -10,14 +10,13 @@ end
 
 ## Learner
 
-struct Learner
-    nvar::Int
-    nloc::Int
+struct Learner{N,M}
     sys::System
-    iset::InitialSet
-    uset::UnsafeSet
     ϵ::Float64
-    δ::Float64
+    sys::System
+    mpf_safe::MultiPolyFunc{N,M}
+    mpf_inv::MultiPolyFunc{N,M}
+    iset::PointSet{N,M}
     tols::Dict{Symbol,Float64}
     params::Dict{Symbol,Float64}
 end
