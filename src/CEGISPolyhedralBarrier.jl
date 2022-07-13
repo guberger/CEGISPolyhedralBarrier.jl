@@ -58,6 +58,6 @@ Base.empty!(S::PointSet) = empty!.(S.points_list)
 
 include("generator.jl")
 include("verifier.jl")
-# include("learner.jl")
+include("learner.jl")
 
 end # module

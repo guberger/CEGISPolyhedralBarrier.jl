@@ -1,4 +1,5 @@
 using LinearAlgebra
+using StaticArrays
 using JuMP
 using HiGHS
 using Test
@@ -8,10 +9,11 @@ else
     using CEGISPolyhedralBarrier
 end
 CPB = CEGISPolyhedralBarrier
-Polyhedron = CPB.Polyhedron
 System = CPB.System
-InitialSet = CPB.InitialSet
-UnsafeSet = CPB.UnsafeSet
+PointSet = CPB.PointSet
+PolyFunc = CPB.PolyFunc
+MultiPolyFunc = CPB.MultiPolyFunc
+_norm(pf::PolyFunc) = maximum(af -> norm(af.a, Inf), pf.afs)
 
 function HiGHS._check_ret(ret::Cint) 
     if ret != Cint(0) && ret != Cint(1)
@@ -27,29 +29,35 @@ solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
 ))
 
-## Learner Disc
-nvar = 1
-nloc = 2
+sys = System{1}()
 
-sys = System()
+pf_dom = PolyFunc{1}()
+CPB.add_af!(pf_dom, SVector(-1.0), 0.0)
+CPB.add_af!(pf_dom, SVector(1.0), -2.0)
+A = @SMatrix [-1.0]
+b = @SVector [1.5]
+CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
 
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1], 0)
-CPB.add_halfspace!(domain, [1], -2)
-A = reshape([-1], 1, 1)
-b = [1]
-CPB.add_piece!(sys, domain, 1, A, b, 2)
+iset = PointSet{1,2}()
+CPB.add_point!(iset, 1, SVector(1.0))
 
-iset = InitialSet()
-CPB.add_state!(iset, 1, [-1])
-CPB.add_state!(iset, 1, [1])
+mpf_safe = MultiPolyFunc{1,2}()
+CPB.add_af!(mpf_safe, 2, SVector(1.0), -1.1)
 
-uset = UnsafeSet()
-udom = Polyhedron()
-CPB.add_halfspace!(udom, [-1], 1.1)
-CPB.add_region!(uset, 2, udom)
+mpf_inv = MultiPolyFunc{1,2}()
 
-lear = CPB.Learner(nvar, nloc, sys, iset, uset, 0, 0)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
+CPB.set_tol!(lear, :rad, 10)
+CPB.set_param!(lear, :xmax, 1e2)
+
+@testset "set tol and param" begin
+    @test_throws AssertionError CPB.set_tol!(lear, :dumb, 0)
+    @test_throws AssertionError CPB.set_param!(lear, :dumb, 0)
+    @test lear.tols[:rad] ≈ 10
+    @test lear.params[:xmax] ≈ 100
+end
+
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
 CPB.set_tol!(lear, :rad, 0)
 CPB.set_param!(lear, :bigM, 1e3)
 
@@ -59,32 +67,52 @@ status, = CPB.learn_lyapunov!(lear, 1, solver, solver)
     @test status == CPB.MAX_ITER_REACHED
 end
 
-tracerec = CPB.TraceRecorder()
-status, = CPB.learn_lyapunov!(
-    lear, 3, solver, solver, tracerec=tracerec, do_print=false
+status, mpf, gen, iter = CPB.learn_lyapunov!(
+    lear, 3, solver, solver, do_print=false
 )
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
-    @test length(tracerec.mpf_list) == 3
-    @test length(tracerec.pos_evids_list[3]) == 1
-    @test length(tracerec.lie_evids_list[3]) == 1
+    @test iter == 2
 end
 
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [1], 0)
-A = reshape([-1], 1, 1)
-b = [0]
-CPB.add_piece!(sys, domain, 1, A, b, 2)
+sys = System{1}()
 
-status, = CPB.learn_lyapunov!(lear, 4, solver, solver)
+pf_dom = PolyFunc{1}()
+CPB.add_af!(pf_dom, SVector(-1.0), 0.0)
+CPB.add_af!(pf_dom, SVector(1.0), -2.0)
+A = @SMatrix [-1.0]
+b = @SVector [1.0]
+CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
+
+pf_dom = PolyFunc{1}()
+CPB.add_af!(pf_dom, SVector(1.0), 0.0)
+A = @SMatrix [-1.0]
+b = @SVector [0.0]
+CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
+
+iset = PointSet{1,2}()
+CPB.add_point!(iset, 1, SVector(-1.0))
+CPB.add_point!(iset, 1, SVector(1.0))
+
+mpf_safe = MultiPolyFunc{1,2}()
+CPB.add_af!(mpf_safe, 2, SVector(1.0), -1.1)
+
+mpf_inv = MultiPolyFunc{1,2}()
+
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
+CPB.set_tol!(lear, :rad, 0)
+CPB.set_param!(lear, :bigM, 1e3)
+
+status, = CPB.learn_lyapunov!(lear, 20, solver, solver)
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
 end
 
-CPB.set_tol!(lear, :rad, 0.05)
-status, = CPB.learn_lyapunov!(lear, 4, solver, solver)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
+CPB.set_tol!(lear, :rad, 0.1)
+status, = CPB.learn_lyapunov!(lear, 20, solver, solver)
 
 @testset "learn lyapunov disc: radius too small" begin
     @test status == CPB.RADIUS_TOO_SMALL

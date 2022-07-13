@@ -11,115 +11,71 @@ end
 ## Learner
 
 struct Learner{N,M}
-    sys::System
-    ϵ::Float64
-    sys::System
+    sys::System{N}
     mpf_safe::MultiPolyFunc{N,M}
     mpf_inv::MultiPolyFunc{N,M}
     iset::PointSet{N,M}
+    ϵ::Float64
     tols::Dict{Symbol,Float64}
     params::Dict{Symbol,Float64}
 end
 
-function Learner(
-        nvar::Int, nloc::Int, sys::System,
-        iset::InitialSet, uset::UnsafeSet, ϵ, δ
-    )
+function Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ)
     tols = Dict([
         :rad => eps(1.0),
-        :pos => -eps(1.0),
-        :lie => -eps(1.0),
-        :dom => eps(1.0)
+        :verif => -eps(1.0),
+        :dom => 1e-8
     ])
     params = Dict([
-        :offmax => 1e3,
-        :rmax_gen => 1e4,
+        :βmax => 1e3,
         :bigM => 1e3,
         :xmax => 1e3,
-        :rmax_verif => 1e2
     ])
-    return Learner(nvar, nloc, sys, iset, uset, ϵ, δ, tols, params)
+    return Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, tols, params)
 end
 
-set_tol!(lear::Learner, s::Symbol, v) = (lear.tols[s] = v)
-set_param!(lear::Learner, s::Symbol, v) = (lear.params[s] = v)
+_setsafe!(D, k, v) = (@assert haskey(D, k); D[k] = v)
+set_tol!(lear::Learner, s::Symbol, v) = _setsafe!(lear.tols, s, v)
+set_param!(lear::Learner, s::Symbol, v) = _setsafe!(lear.params, s, v)
 
 ## Learn Barrier
-
-function _add_evidences_pos!(gen, state)
-    i = add_af!(gen, state.loc)
-    add_evidence!(gen, PosEvidence(state.loc, i, state.point))
+function _add_evidences_pos(gen, loc, point)
+    nafs = setindex(gen.nafs, gen.nafs[loc] + 1, loc)
+    gen = Generator(nafs, gen.neg_evids, gen.pos_evids, gen.lie_evids)
+    add_evidence!(gen, PosEvidence(loc, nafs[loc], point))
+    return gen
 end
 
-function _add_evidences_neg!(gen, state)
-    add_evidence!(gen, NegEvidence(state.loc, state.point))
-end
-
-function _add_evidences_lie!(gen, sys, state, tol_dom)
-    point1 = state.point
-    loc1 = state.loc
-    i1 = add_af!(gen, loc1)
+function _add_evidences_lie(gen, sys, loc, point, tol_dom)
+    nafs = setindex(gen.nafs, gen.nafs[loc] + 1, loc)
+    gen = Generator(nafs, gen.neg_evids, gen.pos_evids, gen.lie_evids)
+    i = nafs[loc]
     for piece in sys.pieces
-        loc1 != piece.loc1 && continue
-        !near(point1, piece.domain, tol_dom) && continue
-        point2 = piece.A*point1 + piece.b
+        loc != piece.loc1 && continue
+        !_neg(piece.pf_dom, point, tol_dom) && continue
+        point2 = piece.A*point + piece.b
         loc2 = piece.loc2
-        nA = opnorm(piece.A, Inf)
-        add_evidence!(gen, LieEvidence(loc1, i1, point1, loc2, point2, nA))
+        nA = opnorm(piece.A, 1)
+        add_evidence!(gen, LieEvidence(loc, i, point, loc2, point2, nA))
     end
-end
-
-function _add_predicates_pos!(verif, nvar, uset)
-    for region in uset.regions
-        add_predicate!(verif, PosPredicate(nvar, region.domain, region.loc))
-    end
-end
-
-function _add_predicates_lie!(verif, nvar, sys)
-    for piece in sys.pieces
-        add_predicate!(verif, LiePredicate(
-            nvar, piece.domain, piece.loc1, piece.A, piece.b, piece.loc2
-        ))
-    end
-end
-
-snapshot(::Nothing, ::Any) = nothing
-
-struct TraceRecorder
-    mpf_list::Vector{MultiPolyFunc}
-    pos_evids_list::Vector{Vector{PosEvidence}}
-    lie_evids_list::Vector{Vector{LieEvidence}}
-end
-
-TraceRecorder() = TraceRecorder(MultiPolyFunc[], PosEvidence[], LieEvidence[])
-
-function snapshot(tracerec::TraceRecorder, gen::Generator)
-    push!(tracerec.pos_evids_list, copy(gen.pos_evids))
-    push!(tracerec.lie_evids_list, copy(gen.lie_evids))
-end
-
-function snapshot(tracerec::TraceRecorder, mpf::MultiPolyFunc)
-    push!(tracerec.mpf_list, mpf)
+    return gen
 end
 
 function learn_lyapunov!(
-        lear::Learner, iter_max, solver_gen, solver_verif;
+        lear::Learner{N,M}, iter_max, solver_gen, solver_verif;
         do_print=true, tracerec=nothing
-    )
-    gen = Generator(lear.nvar, lear.nloc)
-    for state in lear.iset.states
-        _add_evidences_neg!(gen, state)
+    ) where {N,M}
+    gen = Generator{N}(ntuple(loc -> 0, Val(M)))
+    for (loc, points) in enumerate(lear.iset.points_list)
+        for point in points
+            add_evidence!(gen, NegEvidence(loc, point))
+        end
     end
 
-    verif = Verifier()
-    _add_predicates_pos!(verif, lear.nvar, lear.uset)
-    _add_predicates_lie!(verif, lear.nvar, lear.sys)
-
-    mpf = MultiPolyFunc(lear.nloc)
+    mpf = MultiPolyFunc{N,M}()
     iter = 0
     params = lear.params
-    M, offmax, radmax = params[:bigM], params[:offmax], params[:rmax_gen]
-    xmax, objmax = params[:xmax], params[:rmax_verif]
+    βmax, bigM, xmax = params[:βmax], params[:bigM], params[:xmax]
     tol_dom = lear.tols[:dom]
 
     while true
@@ -127,43 +83,41 @@ function learn_lyapunov!(
         do_print && println("Iter: ", iter)
         if iter > iter_max
             println(string("Max iter exceeded: ", iter))
-            return MAX_ITER_REACHED, mpf, iter
+            return MAX_ITER_REACHED, mpf, gen, iter
         end
-        snapshot(tracerec, gen)
 
         # Generator
-        mpf, r = compute_mpf_evidence(gen, M, offmax, radmax, solver_gen)
-        snapshot(tracerec, mpf)
+        mpf, r = compute_mpf_evidence(gen, bigM, βmax, solver_gen)
         if do_print
             println("|--- radius: ", r)
         end
         if r < lear.tols[:rad]
             println(string("Satisfiability radius too small: ", r))
-            return RADIUS_TOO_SMALL, mpf, iter
+            return RADIUS_TOO_SMALL, mpf, gen, iter
         end
 
         # Verifier
-        do_print && print("|--- Verify pos... ")
-        obj, x, loc = verify_pos(verif, mpf, xmax, objmax, solver_verif)
-        if obj > lear.tols[:pos]
+        verif = Verifier(lear.mpf_safe, lear.mpf_inv, mpf, lear.sys, xmax)
+        do_print && print("|--- Verify safe... ")
+        x, obj, loc = verify_safe(verif, solver_verif)
+        if obj > lear.tols[:verif]
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            _add_evidences_pos!(gen, State(loc, x))
+            gen = _add_evidences_pos(gen, loc, x)
             continue
         else
             do_print && println("No CE found: ", obj)
         end
-        do_print && print("|--- Verify lie... ")
-        obj, x, loc = verify_lie(verif, mpf, xmax, objmax, solver_verif)
-        if obj > lear.tols[:lie]
+        do_print && print("|--- Verify BF... ")
+        x, obj, loc = verify_safe(verif, solver_verif)
+        if obj > lear.tols[:verif]
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            _add_evidences_lie!(gen, lear.sys, State(loc, x), tol_dom)
+            gen = _add_evidences_lie(gen, lear.sys, loc, x, tol_dom)
             continue
         else
             do_print && println("No CE found: ", obj)
         end
         
-        println("No CE found")
         println("Valid CLF: terminated")
-        return BARRIER_FOUND, mpf, iter
+        return BARRIER_FOUND, mpf, gen, iter
     end
 end
