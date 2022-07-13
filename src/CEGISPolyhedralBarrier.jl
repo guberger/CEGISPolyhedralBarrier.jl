@@ -1,84 +1,63 @@
 module CEGISPolyhedralBarrier
 
 using LinearAlgebra
+using StaticArrays
 using JuMP
 
-_status(model) = (primal_status(model), termination_status(model))
-_VT_ = Vector{Float64}
-_MT_ = Matrix{Float64}
-Point = _VT_
+Point{N} = SVector{N,Float64}
 
-include("polyhedra.jl")
-
-struct AffForm
-    lin::_VT_
-    off::Float64
+struct AffForm{N}
+    a::Point{N}
+    β::Float64
 end
-_eval(af::AffForm, point) = dot(af.lin, point) + af.off
+_eval(af::AffForm, point) = dot(af.a, point) + af.β
 
-struct PolyFunc
-    afs::Vector{AffForm}
+struct PolyFunc{N}
+    afs::Vector{AffForm{N}}
 end
 
-PolyFunc() = PolyFunc(AffForm[])
+PolyFunc{N}() where N = PolyFunc(AffForm{N}[])
 add_af!(pf::PolyFunc, af::AffForm) = push!(pf.afs, af)
-add_af!(pf::PolyFunc, lin, off) = add_af!(pf, AffForm(lin, off))
+add_af!(pf::PolyFunc, af_...) = add_af!(pf, AffForm(af_...))
+_neg(pf::PolyFunc, point, tol) = all(af -> _eval(af, point) ≤ tol, pf.afs)
 
-struct MultiPolyFunc
-    pfs::Vector{PolyFunc}
+struct MultiPolyFunc{N,M}
+    pfs::NTuple{M,PolyFunc{N}}
 end
 
-MultiPolyFunc(nloc::Int) = MultiPolyFunc([PolyFunc() for loc = 1:nloc])
+MultiPolyFunc{N,M}() where {N,M} = MultiPolyFunc(
+    ntuple(loc -> PolyFunc{N}(), Val(M))
+)
 add_af!(mpf::MultiPolyFunc, loc::Int, af_...) = add_af!(mpf.pfs[loc], af_...)
 
-struct Piece
-    domain::Polyhedron
+struct Piece{N}
+    pf_dom::PolyFunc{N}
     loc1::Int
-    A::_MT_
-    b::_VT_
+    A::SMatrix{N,N,Float64}
+    b::SVector{N,Float64}
     loc2::Int
 end
 
-struct System
-    pieces::Vector{Piece}
+struct System{N}
+    pieces::Vector{Piece{N}}
 end
 
-System() = System(Piece[])
+System{N}() where N = System(Piece{N}[])
 add_piece!(sys::System, piece::Piece) = push!(sys.pieces, piece)
-add_piece!(sys::System, domain, loc1, A, b, loc2) = add_piece!(
-    sys, Piece(domain, loc1, A, b, loc2)
+add_piece!(sys::System, piece_...) = add_piece!(sys, Piece(piece_...))
+
+struct PointSet{N,M}
+    points_list::NTuple{M,Vector{SVector{N,Float64}}}
+end
+
+PointSet{N,M}() where {N,M} = PointSet(
+    ntuple(loc -> SVector{N,Float64}[], Val(M))
 )
-
-struct State
-    loc::Int
-    point::Point
-end
-
-struct InitialSet
-    states::Vector{State}
-end
-
-InitialSet() = InitialSet(State[])
-add_state!(iset::InitialSet, state::State) = push!(iset.states, state)
-add_state!(iset::InitialSet, loc, point) = add_state!(iset, State(loc, point))
-
-struct Region
-    loc::Int
-    domain::Polyhedron
-end
-
-struct UnsafeSet
-    regions::Vector{Region}
-end
-
-UnsafeSet() = UnsafeSet(Region[])
-add_region!(uset::UnsafeSet, region::Region) = push!(uset.regions, region)
-add_region!(uset::UnsafeSet, loc, domain) = add_region!(
-    uset, Region(loc, domain)
-)
+add_point!(S::PointSet, loc::Int, point) = push!(S.points_list[loc], point)
+Base.empty!(S::PointSet) = empty!.(S.points_list)
 
 include("generator.jl")
-include("verifier.jl")
-include("learner.jl")
+# include("verifier.jl")
+# include("learner.jl")
 
 end # module
