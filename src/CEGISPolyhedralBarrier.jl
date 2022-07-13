@@ -57,7 +57,7 @@ add_point!(S::PointSet, loc::Int, point) = push!(S.points_list[loc], point)
 Base.empty!(S::PointSet) = empty!.(S.points_list)
 
 include("generator.jl")
-# include("verifier.jl")
+include("verifier.jl")
 # include("learner.jl")
 
 end # module

@@ -1,134 +1,79 @@
-struct PosPredicate
-    nvar::Int
-    domain::Polyhedron
-    loc::Int
+struct Verifier{N,M}
+    mpf_safe::MultiPolyFunc{N,M}
+    mpf_inv::MultiPolyFunc{N,M}
+    mpf_BF::MultiPolyFunc{N,M}
+    sys::System{N}
+    xmax::Float64
 end
 
-struct LiePredicate
-    nvar::Int
-    domain::Polyhedron
-    loc1::Int
-    A::_MT_
-    b::_VT_
-    loc2::Int
-end
-
-struct Verifier
-    pos_predics::Vector{PosPredicate}
-    lie_predics::Vector{LiePredicate}
-end
-
-Verifier() = Verifier(PosPredicate[], LiePredicate[])
-
-function add_predicate!(verif::Verifier, predic::PosPredicate)
-    push!(verif.pos_predics, predic)
-end
-
-function add_predicate!(verif::Verifier, predic::LiePredicate)
-    push!(verif.lie_predics, predic)
-end
-
-## Optim problem
-
-abstract type VerifierProblem end
-
-function _add_variables!(model, nvar, xmax, rmax)
-    x = @variable(model, [1:nvar], lower_bound=-xmax, upper_bound=xmax)
-    r = @variable(model, upper_bound=rmax)
-    return x, r
-end
-
-function _verify!(
-        prob::VerifierProblem, pfs, xmax, rmax, solver
-    )
+# Safe
+function _verify_optim(
+        af1_, af2, A::SMatrix{N,N}, b::SVector{N}, xmax, solver
+    ) where N
     model = solver()
-    x, r = _add_variables!(model, prob.nvar, xmax, rmax)
+    x = SVector(ntuple(
+        k -> @variable(model, lower_bound=-xmax, upper_bound=xmax), Val(N)
+    ))
 
-    _add_constrs_prob!(prob, model, x, r, pfs)
+    for af1 in af1_
+        @constraint(model, _eval(af1, x) ≤ 0)
+    end
 
-    @objective(model, Max, r)
+    @objective(model, Max, _eval(af2, A*x + b))
 
     optimize!(model)
 
-    if _status(model) == (FEASIBLE_POINT, OPTIMAL)
-        return objective_value(model), value.(x), true
-    end
+    xopt = has_values(model) ? value.(x) : SVector(ntuple(k -> NaN, Val(N)))
+    ropt = has_values(model) ? objective_value(model) : -Inf
+    ps, ts = primal_status(model), termination_status(model)
+    flag = ps == FEASIBLE_POINT && ts == OPTIMAL
+    @assert flag || (ps == NO_SOLUTION && ts == INFEASIBLE)
 
-    @assert _status(model) == (NO_SOLUTION, INFEASIBLE)
-    return -Inf, Float64[], false
+    return xopt, ropt, flag
 end
 
-## Verif Pos
-struct VerifierPos <: VerifierProblem
-    nvar::Int
-    domain::Polyhedron
-    loc::Int
-end
+abstract type VerifierProblem end
 
-function _add_constrs_prob!(prob::VerifierPos, model, x, r, pfs)
-    for h in prob.domain.halfspaces
-        @constraint(model, dot(h.a, x) + h.β ≤ 0)
-    end
-    for lf in pfs[prob.loc].afs
-        @constraint(model, 0 ≥ _eval(lf, x) + r)
-    end
-end
-
-function verify_pos(verif::Verifier, mpf::MultiPolyFunc, xmax, rmax, solver)
-    xopt = Float64[]
+function _verify(
+        prob::VerifierProblem, verif::Verifier{N,M}, solver
+    ) where {N,M}
+    xopt::SVector{N,Float64} = SVector(ntuple(k -> NaN, Val(N)))
     ropt::Float64 = -Inf
     locopt::Int = 0
-    for predic in verif.pos_predics
-        prob = VerifierPos(predic.nvar, predic.domain, predic.loc)
-        r, x, flag_feas = _verify!(prob, mpf.pfs, xmax, rmax, solver)
-        if flag_feas && r > ropt
-            xopt = x
-            ropt = r
-            locopt = predic.loc
-        end
-    end
-    return ropt, xopt, locopt
-end
-
-## Verify Lie
-struct VerifierLie <: VerifierProblem
-    nvar::Int
-    domain::Polyhedron
-    loc1::Int
-    A::_MT_
-    b::_VT_
-    loc2::Int
-    i2::Int
-end
-
-function _add_constrs_prob!(prob::VerifierLie, model, x, r, pfs)
-    for h in prob.domain.halfspaces
-        @constraint(model, dot(h.a, x) + h.β ≤ 0)
-    end
-    for lf1 in pfs[prob.loc1].afs
-        @constraint(model, _eval(lf1, x) ≤ 0)
-    end
-    val2 = _eval(pfs[prob.loc2].afs[prob.i2], prob.A*x + prob.b)
-    @constraint(model, val2 ≥ r)
-end
-
-function verify_lie(verif::Verifier, mpf::MultiPolyFunc, xmax, rmax, solver)
-    xopt = Float64[]
-    ropt::Float64 = -Inf
-    locopt::Int = 0
-    for predic in verif.lie_predics
-        for i2 in eachindex(mpf.pfs[predic.loc2].afs)
-            prob = VerifierLie(
-                predic.nvar, predic.domain,
-                predic.loc1, predic.A, predic.b, predic.loc2, i2
-            )
-            r, x, flag_feas = _verify!(prob, mpf.pfs, xmax, rmax, solver)
-            if flag_feas && r > ropt
+    for piece in verif.sys.pieces
+        pf_dom, A, b = piece.pf_dom, piece.A, piece.b
+        pf_safe = verif.mpf_safe.pfs[piece.loc1]
+        pf_inv = verif.mpf_inv.pfs[piece.loc1]
+        pf_BF = verif.mpf_BF.pfs[piece.loc1]
+        af1_ = Iterators.flatten(
+            (pf_dom.afs, pf_safe.afs, pf_inv.afs, pf_BF.afs)
+        )
+        for af2 in _get_af2_(prob, verif, piece)
+            x, r, flag = _verify_optim(af1_, af2, A, b, verif.xmax, solver)
+            if flag && r > ropt
                 xopt = x
                 ropt = r
-                locopt = predic.loc1
+                locopt = piece.loc1
             end
         end
     end
-    return ropt, xopt, locopt
+    return xopt, ropt, locopt
+end
+
+struct VerifierSafe <: VerifierProblem end
+
+_get_af2_(::VerifierSafe, verif, piece) = verif.mpf_safe.pfs[piece.loc2].afs
+
+function verify_safe(verif::Verifier, solver)
+    prob = VerifierSafe()
+    return _verify(prob, verif, solver)
+end
+
+struct VerifierBF <: VerifierProblem end
+
+_get_af2_(::VerifierBF, verif, piece) = verif.mpf_BF.pfs[piece.loc2].afs
+
+function verify_BF(verif::Verifier, solver)
+    prob = VerifierBF()
+    return _verify(prob, verif, solver)
 end
