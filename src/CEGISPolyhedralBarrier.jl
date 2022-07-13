@@ -54,7 +54,7 @@ PointSet{N,M}() where {N,M} = PointSet(
     ntuple(loc -> SVector{N,Float64}[], Val(M))
 )
 add_point!(S::PointSet, loc::Int, point) = push!(S.points_list[loc], point)
-Base.empty!(S::PointSet) = empty!.(S.points_list)
+# Base.empty!(S::PointSet) = foreach(points -> empty!(points), S.points_list)
 
 include("generator.jl")
 include("verifier.jl")

@@ -108,7 +108,7 @@ function learn_lyapunov!(
             do_print && println("No CE found: ", obj)
         end
         do_print && print("|--- Verify BF... ")
-        x, obj, loc = verify_safe(verif, solver_verif)
+        x, obj, loc = verify_BF(verif, solver_verif)
         if obj > lear.tols[:verif]
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
             gen = _add_evidences_lie(gen, lear.sys, loc, x, tol_dom)

@@ -1,154 +1,142 @@
 module ExampleSubwayMedium
 
 using LinearAlgebra
+using StaticArrays
 using JuMP
 using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
-Polyhedron = CPB.Polyhedron
 System = CPB.System
-InitialSet = CPB.InitialSet
-UnsafeSet = CPB.UnsafeSet
-State = CPB.State
-Region = CPB.Region
+PointSet = CPB.PointSet
+PolyFunc = CPB.PolyFunc
+MultiPolyFunc = CPB.MultiPolyFunc
+
+include("../utils/plotting2D.jl")
 
 const GUROBI_ENV = Gurobi.Env()
 solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-## Parameters
-nvar = 3
 # vars = [#beacon, #second, delay]
-nloc = 4
 # locs = [ontime, late, onbrake, stopped]
-_EYE_ = Matrix{Bool}(I, 3, 3)
-_RES_ = [1 0 0; 0 1 0; 0 0 0]
+_EYE_ = SMatrix{3,3}(1.0*I)
+_RES_ = @SMatrix [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 0.0]
 
-Inv1 = Polyhedron()
-CPB.add_halfspace!(Inv1, [-1, 0, 0], 0)
-CPB.add_halfspace!(Inv1, [1, 0, 0], -40)
-CPB.add_halfspace!(Inv1, [0, -1, 0], 0)
-CPB.add_halfspace!(Inv1, [0, 1, 0], -40)
-CPB.add_halfspace!(Inv1, [0, 0, -1], 0)
-CPB.add_halfspace!(Inv1, [0, 0, 1], 0)
-Inv2 = Polyhedron()
-CPB.add_halfspace!(Inv2, [-1, 0, 0], 0)
-CPB.add_halfspace!(Inv2, [1, 0, 0], -40)
-CPB.add_halfspace!(Inv2, [0, -1, 0], 0)
-CPB.add_halfspace!(Inv2, [0, 1, 0], -40)
-CPB.add_halfspace!(Inv2, [0, 0, -1], 0)
-CPB.add_halfspace!(Inv2, [0, 0, 1], -10)
+mpf_inv = MultiPolyFunc{3,4}()
+for loc in (1, 2, 4)
+    CPB.add_af!(mpf_inv, loc, SVector(-1.0, 0.0, 0.0), -0.0)
+    CPB.add_af!(mpf_inv, loc, SVector(1.0, 0.0, 0.0), -100.0)
+    CPB.add_af!(mpf_inv, loc, SVector(0.0, -1.0, 0.0), -0.0)
+    CPB.add_af!(mpf_inv, loc, SVector(0.0, 1.0, 0.0), -100.0)
+    CPB.add_af!(mpf_inv, loc, SVector(0.0, 0.0, -1.0), 0.0)
+    CPB.add_af!(mpf_inv, loc, SVector(0.0, 0.0, 1.0), 0.0)
+end
+CPB.add_af!(mpf_inv, 3, SVector(-1.0, 0.0, 0.0), -0.0)
+CPB.add_af!(mpf_inv, 3, SVector(1.0, 0.0, 0.0), -100.0)
+CPB.add_af!(mpf_inv, 3, SVector(0.0, -1.0, 0.0), -0.0)
+CPB.add_af!(mpf_inv, 3, SVector(0.0, 1.0, 0.0), -100.0)
+CPB.add_af!(mpf_inv, 3, SVector(0.0, 0.0, -1.0), 0.0)
+CPB.add_af!(mpf_inv, 3, SVector(0.0, 0.0, 1.0), -10.0)
 
-sys = System()
+sys = System{3}()
 
 # ontime -> ontime: time advance
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [1, -1, 0], -10) # b ≤ s + 10
-CPB.add_halfspace!(domain, [-1, 1, 0], -9) # b ≥ s - 9
-b = [0, 1, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 1, _EYE_, b, 1)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), -10.0) # b ≤ s + 10
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), -9.0) # b ≥ s - 9
+b = @SVector [0.0, 1.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 1)
 
 # ontime -> ontime: beacon advance
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [1, -1, 0], -9) # b ≤ s + 9
-CPB.add_halfspace!(domain, [-1, 1, 0], -10) # b ≥ s - 10
-b = [1, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 1, _EYE_, b, 1)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), -9.0) # b ≤ s + 9
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), -10.0) # b ≥ s - 10
+b = @SVector [1.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 1)
 
 # ontime -> late: run_late
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], -10) # b = s - 10
-CPB.add_halfspace!(domain, [1, -1, 0], 10)
-b = [0, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 1, _EYE_, b, 2)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), 10.0) # b = s - 10
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), -10.0)
+b = @SVector [0.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 2)
 
 # late -> late: beacon advance
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [1, -1, 0], 1) # b ≤ s - 1
-b = [1, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 2, _EYE_, b, 2)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), 1.0) # b ≤ s - 1
+b = @SVector [1.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 2, _EYE_, b, 2)
 
 # late -> ontime: back_on_time
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [1, -1, 0], 0) # b = s
-CPB.add_halfspace!(domain, [-1, 1, 0], 0)
-b = [0, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 2, _EYE_, b, 1)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), 0.0) # b == s
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 0.0)
+b = @SVector [0.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 2, _EYE_, b, 1)
 
 # ontime -> onbrake: become_early
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], 10) # b = s + 10
-CPB.add_halfspace!(domain, [1, -1, 0], -10)
-b = [0, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 1, _EYE_, b, 3)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), -10.0) # b = s + 10
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 10.0)
+b = @SVector [0.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 3)
 
 # onbrake -> onbrake: time advance
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], 1) # b ≥ s + 1
-b = [0, 1, 0]
-CPB.add_piece!(sys, domain ∩ Inv2, 3, _EYE_, b, 3)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 1.0) # b ≥ s + 1
+b = @SVector [0.0, 1.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 3, _EYE_, b, 3)
 
 # onbrake -> ontime: back_on_time
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], 0) # b = s
-CPB.add_halfspace!(domain, [1, -1, 0], 0)
-b = [0, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv2, 3, _RES_, b, 1)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), 0.0) # b == s
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 0.0)
+b = @SVector [0.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 3, _RES_, b, 1)
 
 # onbrake -> stopped: stop
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], 0) # b ≥ s
-CPB.add_halfspace!(domain, [0, 0, -1], 10) # d = 10
-CPB.add_halfspace!(domain, [0, 0, 1], -10)
-b = [0, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv2, 3, _RES_, b, 4)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 0.0) # b ≥ s
+CPB.add_af!(pf_dom, SVector(0.0, 0.0, 1.0), -10.0) # d == 10
+CPB.add_af!(pf_dom, SVector(0.0, 0.0, -1.0), 10.0)
+b = @SVector [0.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 3, _RES_, b, 4)
 
 # stopped -> stopped: time advance
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], 1) # b ≥ s + 1
-b = [0, 1, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 4, _EYE_, b, 4)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 1.0) # b ≥ s + 1
+b = @SVector [0.0, 1.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 4, _EYE_, b, 4)
 
 # stopped -> ontime: back_on_time
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [-1, 1, 0], 0) # b = s
-CPB.add_halfspace!(domain, [1, -1, 0], 0)
-b = [0, 0, 0]
-CPB.add_piece!(sys, domain ∩ Inv1, 4, _EYE_, b, 1)
+pf_dom = PolyFunc{3}()
+CPB.add_af!(pf_dom, SVector(1.0, -1.0, 0.0), 0.0) # b == s
+CPB.add_af!(pf_dom, SVector(-1.0, 1.0, 0.0), 0.0)
+b = @SVector [0.0, 0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 4, _EYE_, b, 1)
 
-iset = InitialSet()
-CPB.add_state!(iset, 1, [0, 0, 0])
-CPB.add_state!(iset, 2, [0, 10, 0])
-CPB.add_state!(iset, 3, [10, 0, 0])
+iset = PointSet{3,4}()
+CPB.add_point!(iset, 1, SVector(1.0, 0.0, 0.0))
+CPB.add_point!(iset, 1, SVector(0.0, 1.0, 0.0))
+CPB.add_point!(iset, 2, SVector(0.0, 10.0, 0.0))
+CPB.add_point!(iset, 3, SVector(10.0, 0.0, 0.0))
 
-uset = UnsafeSet()
-udom = Polyhedron()
-CPB.add_halfspace!(udom, [-1, 1, 0], 11)
-CPB.add_region!(uset, 1, udom ∩ Inv1)
-CPB.add_region!(uset, 2, udom ∩ Inv1)
-CPB.add_region!(uset, 3, udom ∩ Inv2)
-udom = Polyhedron()
-CPB.add_halfspace!(udom, [1, -1, 0], 11)
-CPB.add_region!(uset, 1, udom ∩ Inv1)
-CPB.add_region!(uset, 2, udom ∩ Inv1)
-CPB.add_region!(uset, 3, udom ∩ Inv2)
+mpf_safe = MultiPolyFunc{3,4}()
+for loc = 1:4
+    CPB.add_af!(mpf_safe, loc, SVector(-1.0, 1.0, 0.0), -11.0)
+    CPB.add_af!(mpf_safe, loc, SVector(1.0, -1.0, 0.0), -11.0)
+end
 
-lear = CPB.Learner(nvar, nloc, sys, iset, uset, 0, 0)
-CPB.set_tol!(lear, :rad, 1e-4)
-CPB.set_tol!(lear, :dom, 1e-6)
-CPB.set_param!(lear, :bigM, 1e3)
-
-status, mpf, niter = CPB.learn_lyapunov!(lear, 1000, solver, solver)
-
-# with unsafe set `|b - s| ≤ 15`: 176 iterations
-# `tol_dom = 1e-6`
-
-# with unsafe set `|b - s| ≤ 11`: 267 iterations
-# `tol_dom = 1e-6`
+## Learner
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-2)
+CPB.set_tol!(lear, :dom, 1e-8)
+status, mpf, gen, iter = CPB.learn_lyapunov!(lear, Inf, solver, solver)
 
 display(status)
+
+foreach(pf -> display(pf), mpf.pfs)
 
 end # module

@@ -1,22 +1,17 @@
 module ExampleIllustrative
 
 using LinearAlgebra
+using StaticArrays
 using JuMP
 using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
-Halfspace = CPB.Halfspace
-AffForm = CPB.AffForm
-Point = CPB.Point
-Polyhedron = CPB.Polyhedron
-PolyFunc = CPB.PolyFunc
 System = CPB.System
-InitialSet = CPB.InitialSet
-UnsafeSet = CPB.UnsafeSet
-State = CPB.State
-Region = CPB.Region
+PointSet = CPB.PointSet
+PolyFunc = CPB.PolyFunc
+MultiPolyFunc = CPB.MultiPolyFunc
 
 include("../utils/plotting2D.jl")
 
@@ -25,45 +20,36 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-## Parameters
-nvar = 2
-nloc = 2
-
-box = Polyhedron()
-CPB.add_halfspace!(box, [-1, 0], -2)
-CPB.add_halfspace!(box, [1, 0], -2)
-CPB.add_halfspace!(box, [0, -1], -2)
-CPB.add_halfspace!(box, [0, 1], -2)
-
-sys = System()
-
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [0, -1], 0.5)
-A = [0.5 0.0; 0.0 0.5]
-b = [0, 0]
-CPB.add_piece!(sys, domain ∩ box, 1, A, b, 2)
-
-domain = Polyhedron()
-CPB.add_halfspace!(domain, [1, 0], 0)
-A = Matrix{Bool}(I, 2, 2)
-b = [0.0, 0.5]
-CPB.add_piece!(sys, domain ∩ box, 2, A, b, 1)
-
-iset = InitialSet()
-init_points = ([-1, -1], [-1, 1], [1, -1], [1, 1])
-for point in init_points
-    CPB.add_state!(iset, 1, point)
+mpf_inv = MultiPolyFunc{2,2}()
+for loc = 1:2
+    CPB.add_af!(mpf_inv, loc, SVector(-1.0, 0.0), -2.0)
+    CPB.add_af!(mpf_inv, loc, SVector(1.0, 0.0), -2.0)
+    CPB.add_af!(mpf_inv, loc, SVector(0.0, -1.0), -2.0)
+    CPB.add_af!(mpf_inv, loc, SVector(0.0, 1.0), -2.0)
 end
 
-uset = UnsafeSet()
-udom = Polyhedron()
-CPB.add_halfspace!(udom, [-1, 0], -2)
-CPB.add_halfspace!(udom, [1, 0], 1)
-CPB.add_halfspace!(udom, [0, -1], 1)
-CPB.add_halfspace!(udom, [0, 1], -2)
-CPB.add_region!(uset, 2, udom)
+sys = System{2}()
 
-## Plotting
+pf_dom = PolyFunc{2}()
+CPB.add_af!(pf_dom, SVector(0.0, -1.0), 0.5)
+A = @SMatrix [0.5 0.0; 0.0 0.5]
+b = @SVector [0.0, 0.0]
+CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
+
+pf_dom = PolyFunc{2}()
+CPB.add_af!(pf_dom, SVector(1.0, 0.0), 0.0)
+A = @SMatrix [1.0 0.0; 0.0 1.0]
+b = @SVector [0.0, 0.5]
+CPB.add_piece!(sys, pf_dom, 2, A, b, 1)
+
+iset = PointSet{2,2}()
+CPB.add_point!(iset, 1, SVector(-1.0, -1.0))
+CPB.add_point!(iset, 1, SVector(-1.0, 1.0))
+CPB.add_point!(iset, 1, SVector(1.0, -1.0))
+CPB.add_point!(iset, 1, SVector(1.0, 1.0))
+
+mpf_safe = MultiPolyFunc{2,2}()
+CPB.add_af!(mpf_safe, 1, SVector(0.0, 1.0), -1.5)
 
 # Illustration
 fig = figure(0, figsize=(15, 8))
@@ -73,8 +59,9 @@ ax_ = fig.subplots(
     subplot_kw=Dict("aspect"=>"equal")
 )
 
-xlims = (-2.2, 2.2)
-ylims = (-2.2, 2.2)
+xlims = (-4.2, 4.2)
+ylims = (-4.2, 4.2)
+lims = [(-10, -10), (10, 10)]
 
 for ax in ax_
     ax.set_xlim(xlims...)
@@ -85,38 +72,46 @@ for ax in ax_
     ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
 end
 
-for state in iset.states
-    plot_point!(ax_[state.loc], state.point, mc="gold")
+for (loc, pf) in enumerate(mpf_safe.pfs)
+    plot_level!(ax_[loc], pf.afs, lims, fc="green", fa=0.1, ec="green")
 end
 
-for loc = 1:nloc
-    points = [state.point for state in iset.states if state.loc == loc]
-    plot_vrep!(ax_[loc], points, fc="yellow", ec="yellow")
-end
-
-for region in uset.regions
-    plot_hrep!(
-        ax_[region.loc], region.domain.halfspaces, nothing, fc="red", ec="red"
-    )
+for (loc, pf) in enumerate(mpf_inv.pfs)
+    plot_level!(ax_[loc], pf.afs, lims, fc="none", ec="yellow")
 end
 
 for piece in sys.pieces
-    plot_hrep!(
-        ax_[piece.loc1], piece.domain.halfspaces, nothing, fa=0.1, ec="none"
+    plot_level!(
+        ax_[piece.loc1], piece.pf_dom.afs, lims, fc="blue", fa=0.1, ec="blue"
     )
 end
 
 ## Learner
-lear = CPB.Learner(nvar, nloc, sys, iset, uset, 0, 0)
-CPB.set_tol!(lear, :rad, 1e-4)
-CPB.set_tol!(lear, :bigM, 1e3)
-
-status, mpf = CPB.learn_lyapunov!(lear, 1000, solver, solver)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-2)
+CPB.set_tol!(lear, :dom, 1e-8)
+status, mpf, gen, iter = CPB.learn_lyapunov!(lear, Inf, solver, solver)
 
 display(status)
 
-for loc = 1:nloc
-    plot_level!(ax_[loc], mpf.pfs[loc].afs, [(-10, -10), (10, 10)])
+for (loc, pf) in enumerate(mpf.pfs)
+    plot_level!(ax_[loc], pf.afs, lims, fc="red", ec="red", fa=0.1, ew=0.5)
 end
+
+for evid in gen.neg_evids
+    plot_point!(ax_[evid.loc], evid.point, mc="purple")
+end
+
+for evid in gen.pos_evids
+    plot_point!(ax_[evid.loc], evid.point, mc="orange")
+end
+
+for evid in gen.lie_evids
+    plot_point!(ax_[evid.loc1], evid.point1, mc="green")
+    plot_point!(ax_[evid.loc2], evid.point2, mc="blue")
+end
+
+fig.savefig(string(
+    @__DIR__, "/../figures/fig_exa_illustrative.png"
+), dpi=200, transparent=false, bbox_inches="tight")
 
 end # module

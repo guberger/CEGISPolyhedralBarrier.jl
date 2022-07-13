@@ -32,19 +32,26 @@ solver() = Model(optimizer_with_attributes(
 sys = System{1}()
 
 pf_dom = PolyFunc{1}()
-CPB.add_af!(pf_dom, SVector(-1.0), 0.0)
 CPB.add_af!(pf_dom, SVector(1.0), -2.0)
-A = @SMatrix [-1.0]
-b = @SVector [1.5]
+A = @SMatrix [0.5]
+b = @SVector [0.0]
 CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
 
+pf_dom = PolyFunc{1}()
+CPB.add_af!(pf_dom, SVector(1.0), -2.0)
+A = @SMatrix [1.0]
+b = @SVector [0.5]
+CPB.add_piece!(sys, pf_dom, 2, A, b, 1)
+
 iset = PointSet{1,2}()
-CPB.add_point!(iset, 1, SVector(1.0))
+CPB.add_point!(iset, 1, SVector(0.5))
 
 mpf_safe = MultiPolyFunc{1,2}()
-CPB.add_af!(mpf_safe, 2, SVector(1.0), -1.1)
+CPB.add_af!(mpf_safe, 1, SVector(1.0), -1.8)
 
 mpf_inv = MultiPolyFunc{1,2}()
+CPB.add_af!(mpf_inv, 1, SVector(-1.0), 0.0)
+CPB.add_af!(mpf_inv, 2, SVector(-1.0), 0.0)
 
 lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
 CPB.set_tol!(lear, :rad, 10)
@@ -68,50 +75,15 @@ status, = CPB.learn_lyapunov!(lear, 1, solver, solver)
 end
 
 status, mpf, gen, iter = CPB.learn_lyapunov!(
-    lear, 3, solver, solver, do_print=false
+    lear, 5, solver, solver, do_print=true
 )
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
-    @test iter == 2
+    @test iter == 3
 end
 
-sys = System{1}()
-
-pf_dom = PolyFunc{1}()
-CPB.add_af!(pf_dom, SVector(-1.0), 0.0)
-CPB.add_af!(pf_dom, SVector(1.0), -2.0)
-A = @SMatrix [-1.0]
-b = @SVector [1.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
-
-pf_dom = PolyFunc{1}()
-CPB.add_af!(pf_dom, SVector(1.0), 0.0)
-A = @SMatrix [-1.0]
-b = @SVector [0.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
-
-iset = PointSet{1,2}()
-CPB.add_point!(iset, 1, SVector(-1.0))
-CPB.add_point!(iset, 1, SVector(1.0))
-
-mpf_safe = MultiPolyFunc{1,2}()
-CPB.add_af!(mpf_safe, 2, SVector(1.0), -1.1)
-
-mpf_inv = MultiPolyFunc{1,2}()
-
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
-CPB.set_tol!(lear, :rad, 0)
-CPB.set_param!(lear, :bigM, 1e3)
-
-status, = CPB.learn_lyapunov!(lear, 20, solver, solver)
-
-@testset "learn lyapunov disc: found" begin
-    @test status == CPB.BARRIER_FOUND
-end
-
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
-CPB.set_tol!(lear, :rad, 0.1)
+CPB.set_tol!(lear, :rad, 1.0)
 status, = CPB.learn_lyapunov!(lear, 20, solver, solver)
 
 @testset "learn lyapunov disc: radius too small" begin
