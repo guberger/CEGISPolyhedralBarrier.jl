@@ -17,83 +17,93 @@ struct Learner{N,M}
     iset::PointSet{N,M}
     ϵ::Float64
     δ::Float64
-    tols::Dict{Symbol,Float64}
     params::Dict{Symbol,Float64}
 end
 
 function Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ)
-    tols = Dict([
-        :rad => eps(1.0),
-        :dom => 1e-8
-    ])
     params = Dict([
+        :tol_dom => 1e-8,
         :βmax => 1e3,
-        :bigM => 1e3,
-        :xmax => 1e3,
+        :xmax => 1e3
     ])
-    return Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ, tols, params)
+    return Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ, params)
 end
 
 _setsafe!(D, k, v) = (@assert haskey(D, k); D[k] = v)
-set_tol!(lear::Learner, s::Symbol, v) = _setsafe!(lear.tols, s, v)
 set_param!(lear::Learner, s::Symbol, v) = _setsafe!(lear.params, s, v)
 
 ## Learn Barrier
-function _add_evidences_pos(gen, loc, point)
-    nafs = setindex(gen.nafs, gen.nafs[loc] + 1, loc)
-    gen = Generator(nafs, gen.neg_evids, gen.pos_evids, gen.lie_evids)
-    add_evidence!(gen, PosEvidence(loc, nafs[loc], point))
-    return gen
-end
-
-function _add_evidences_lie(gen, sys, loc, point, tol_dom)
-    nafs = setindex(gen.nafs, gen.nafs[loc] + 1, loc)
-    gen = Generator(nafs, gen.neg_evids, gen.pos_evids, gen.lie_evids)
-    i = nafs[loc]
-    for piece in sys.pieces
-        loc != piece.loc1 && continue
-        !_neg(piece.pf_dom, point, tol_dom) && continue
-        point2 = piece.A*point + piece.b
-        loc2 = piece.loc2
-        nA = opnorm(piece.A, 1)
-        add_evidence!(gen, LieEvidence(loc, i, point, loc2, point2, nA))
-    end
-    return gen
-end
-
 function learn_lyapunov!(
-        lear::Learner{N,M}, iter_max, solver_gen, solver_verif; do_print=true
+        lear::Learner{N,M}, iter_max, solver_sep, solver_verif; do_print=true
     ) where {N,M}
-    gen = Generator{N}(ntuple(loc -> 0, Val(M)))
-    for (loc, points) in enumerate(lear.iset.points_list)
+    βmax = lear.params[:βmax]
+    xmax = lear.params[:xmax]
+    tol_dom = lear.params[:tol_dom]
+
+    seps = ntuple(loc -> Separator{N}(lear.ϵ, βmax), Val(M))
+    for (sep, points) in zip(seps, lear.iset.points_list)
         for point in points
-            add_evidence!(gen, NegEvidence(loc, point))
+            add_soft_evid!(sep, point)
         end
     end
 
+    unsafe_set = PointSet{N,M}()
+    pos_set = PointSet{N,M}()
+    temp_pos_set = PointSet{N,M}()
+
     mpf = MultiPolyFunc{N,M}()
     iter = 0
-    params = lear.params
-    βmax, bigM, xmax = params[:βmax], params[:bigM], params[:xmax]
-    tol_dom = lear.tols[:dom]
-
-    while true
+    loc_stack = collect(1:M)
+    
+    while !isempty(loc_stack)        
         iter += 1
         do_print && println("Iter: ", iter)
         if iter > iter_max
             println(string("Max iter exceeded: ", iter))
-            return MAX_ITER_REACHED, mpf, gen, iter
+            return MAX_ITER_REACHED, mpf, seps, iter
         end
 
-        # Generator
-        mpf, r = compute_mpf_evidence(gen, bigM, βmax, solver_gen)
-        if do_print
-            println("|--- radius: ", r)
+        loc = pop!(loc_stack)
+        sep = seps[loc]
+        empty!(mpf, loc)
+
+        # Sep unsafe
+        for point in unsafe_set.points_list[loc]
+            af, r = compute_af(sep, point, solver_sep)
+            if r < 0
+                println(string("Satisfiability radius too small: ", r))
+                return RADIUS_TOO_SMALL, mpf, seps, iter
+            end
+            add_af!(mpf, loc, af)
         end
-        if r < lear.tols[:rad]
-            println(string("Satisfiability radius too small: ", r))
-            return RADIUS_TOO_SMALL, mpf, gen, iter
+
+        empty!(temp_pos_set, loc)
+
+        while !isempty(pos_set.points_list[loc])
+            point = pop_point!(pos_set, loc)
+            af, r = compute_af(sep, point, solver_sep)
+            if r < 0
+                println(string("|--- radius: ", r))
+                add_soft_evid!(sep, point)
+                for piece in lear.sys.pieces
+                    loc != piece.loc1 && continue
+                    !_neg(piece.pf_dom, point, tol_dom) && continue
+                    loc2 = piece.loc2
+                    add_hard_evid!(seps[loc2], piece.A*point + piece.b)
+                    loc2 ∉ loc_stack && push!(loc_stack, loc2)
+                end
+                break
+            end
+            add_af!(mpf, loc, af)
+            add_point!(temp_pos_set, loc, point)
         end
+
+        for point in temp_pos_set.points_list[loc]
+            add_point!(pos_set, loc, point)
+        end
+
+        !isempty(loc_stack) && continue
+        @assert isempty(loc_stack)
 
         # Verifier
         verif = Verifier(lear.mpf_safe, lear.mpf_inv, mpf, lear.sys, xmax)
@@ -101,7 +111,8 @@ function learn_lyapunov!(
         x, obj, loc = verify_safe(verif, lear.δ, solver_verif)
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            gen = _add_evidences_pos(gen, loc, x)
+            add_point!(unsafe_set, loc, x)
+            push!(loc_stack, loc)
             continue
         else
             do_print && println("No CE found: ", obj)
@@ -110,13 +121,13 @@ function learn_lyapunov!(
         x, obj, loc = verify_BF(verif, lear.δ, solver_verif)
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            gen = _add_evidences_lie(gen, lear.sys, loc, x, tol_dom)
+            add_point!(pos_set, loc, x)
+            push!(loc_stack, loc)
             continue
         else
             do_print && println("No CE found: ", obj)
         end
-        
-        println("Valid CLF: terminated")
-        return BARRIER_FOUND, mpf, gen, iter
     end
+    println("Valid CLF: terminated")
+    return BARRIER_FOUND, mpf, seps, iter
 end
