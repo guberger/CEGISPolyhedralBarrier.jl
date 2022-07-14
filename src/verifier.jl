@@ -6,20 +6,25 @@ struct Verifier{N,M}
     xmax::Float64
 end
 
-# Safe
-function _verify_optim(
-        af1_, af2, A::SMatrix{N,N}, b::SVector{N}, xmax, solver
+abstract type VerifierProblem end
+
+function _optim_verif(
+        prob::VerifierProblem, af1_, af2,
+        A::SMatrix{N,N}, b::SVector{N}, xmax, solver
     ) where N
     model = solver()
     x = SVector(ntuple(
         k -> @variable(model, lower_bound=-xmax, upper_bound=xmax), Val(N)
     ))
+    r = @variable(model, upper_bound=10*xmax)
 
     for af1 in af1_
-        @constraint(model, _eval(af1, x) ≤ 0)
+        _add_constr_in!(prob, model, af1, x, r)
     end
 
-    @objective(model, Max, _eval(af2, A*x + b))
+    _add_constr_out!(prob, model, af2, A*x + b, r)
+
+    @objective(model, Max, r)
 
     optimize!(model)
 
@@ -32,24 +37,18 @@ function _verify_optim(
     return xopt, ropt, flag
 end
 
-abstract type VerifierProblem end
-
 function _verify(
-        prob::VerifierProblem, verif::Verifier{N,M}, solver
-    ) where {N,M}
+        prob::VerifierProblem, sys::System{N}, mpfs_in, mpf_out, xmax, solver
+    ) where N
     xopt::SVector{N,Float64} = SVector(ntuple(k -> NaN, Val(N)))
     ropt::Float64 = -Inf
     locopt::Int = 0
-    for piece in verif.sys.pieces
+    for piece in sys.pieces
         pf_dom, A, b = piece.pf_dom, piece.A, piece.b
-        pf_safe = verif.mpf_safe.pfs[piece.loc1]
-        pf_inv = verif.mpf_inv.pfs[piece.loc1]
-        pf_BF = verif.mpf_BF.pfs[piece.loc1]
-        af1_ = Iterators.flatten(
-            (pf_dom.afs, pf_safe.afs, pf_inv.afs, pf_BF.afs)
-        )
-        for af2 in _get_af2_(prob, verif, piece)
-            x, r, flag = _verify_optim(af1_, af2, A, b, verif.xmax, solver)
+        afs_in_ = map(mpf -> mpf.pfs[piece.loc1].afs, mpfs_in)
+        af1_ = Iterators.flatten((pf_dom.afs, afs_in_...))
+        for af2 in mpf_out.pfs[piece.loc2].afs
+            x, r, flag = _optim_verif(prob, af1_, af2, A, b, xmax, solver)
             if flag && r > ropt
                 xopt = x
                 ropt = r
@@ -60,20 +59,40 @@ function _verify(
     return xopt, ropt, locopt
 end
 
-struct VerifierSafe <: VerifierProblem end
-
-_get_af2_(::VerifierSafe, verif, piece) = verif.mpf_safe.pfs[piece.loc2].afs
-
-function verify_safe(verif::Verifier, solver)
-    prob = VerifierSafe()
-    return _verify(prob, verif, solver)
+struct VerifierSafe <: VerifierProblem
+    δ::Float64
 end
 
-struct VerifierBF <: VerifierProblem end
+function _add_constr_in!(::VerifierSafe, model, af, x, r)
+    @constraint(model, _eval(af, x) + norm(af.a, 1)*r ≤ 0)
+end
 
-_get_af2_(::VerifierBF, verif, piece) = verif.mpf_BF.pfs[piece.loc2].afs
+function _add_constr_out!(prob::VerifierSafe, model, af, x, ::Any)
+    @constraint(model, _eval(af, x) + prob.δ ≥ 0)
+end
 
-function verify_BF(verif::Verifier, solver)
-    prob = VerifierBF()
-    return _verify(prob, verif, solver)
+function verify_safe(verif::Verifier, δ, solver)
+    prob = VerifierSafe(δ)
+    mpfs_in = (verif.mpf_safe, verif.mpf_inv, verif.mpf_BF)
+    mpf_out = verif.mpf_safe
+    return _verify(prob, verif.sys, mpfs_in, mpf_out, verif.xmax, solver)
+end
+
+struct VerifierBF <: VerifierProblem
+    δ::Float64
+end
+
+function _add_constr_in!(::VerifierBF, model, af, x, r)
+    @constraint(model, _eval(af, x) + norm(af.a, 1)*r ≤ 0)
+end
+
+function _add_constr_out!(prob::VerifierBF, model, af, x, r)
+    @constraint(model, _eval(af, x) - norm(af.a, 1)*r + prob.δ ≥ 0)
+end
+
+function verify_BF(verif::Verifier, δ, solver)
+    prob = VerifierBF(δ)
+    mpfs_in = (verif.mpf_safe, verif.mpf_inv, verif.mpf_BF)
+    mpf_out = verif.mpf_BF
+    return _verify(prob, verif.sys, mpfs_in, mpf_out, verif.xmax, solver)
 end

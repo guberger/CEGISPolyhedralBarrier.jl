@@ -19,6 +19,7 @@ solver() = Model(optimizer_with_attributes(
 ))
 
 xmax = 1e3
+δ = 1e-3
 
 # Set #1
 sys = System{1}()
@@ -37,7 +38,7 @@ CPB.add_af!(mpf_BF, 1, SVector(-1.0), 0.5)
 mpf_safe = MultiPolyFunc{1,1}()
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_safe(verif, solver)
+x, r, loc = CPB.verify_safe(verif, δ, solver)
 
 @testset "verify safe: empty" begin
     @test r == -Inf
@@ -49,23 +50,31 @@ mpf_safe = MultiPolyFunc{1,1}()
 CPB.add_af!(mpf_safe, 1, SVector(1.0), -0.25)
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_safe(verif, solver)
+x, r, loc = CPB.verify_safe(verif, δ, solver)
 
 @testset "verify safe: infeasible" begin
-    @test r == -Inf
-    @test x === SVector(NaN)
-    @test loc == 0
+    @test r ≈ -0.125
+    @test x ≈ SVector(0.375)
+    @test loc == 1
 end
 
 mpf_safe = MultiPolyFunc{1,1}()
 CPB.add_af!(mpf_safe, 1, SVector(1.0), -1.0)
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_safe(verif, solver)
+x, r, loc = CPB.verify_safe(verif, δ, solver)
 
 @testset "verify safe: unsafe" begin
-    @test r == 0.5
-    @test x === SVector(1.0)
+    @test r ≈ 0.25
+    @test x ≈ SVector(0.75)
+    @test loc == 1
+end
+
+x, r, loc = CPB.verify_BF(verif, δ, solver)
+
+@testset "verify BF: satisfied" begin
+    @test r ≈ 2*δ/3 - 0.5
+    @test x ≈ SVector(2*δ/3)
     @test loc == 1
 end
 
@@ -87,7 +96,7 @@ mpf_safe = MultiPolyFunc{2,2}()
 CPB.add_af!(mpf_safe, 1, SVector(0.0, -1.0), -1.0)
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_safe(verif, solver)
+x, r, loc = CPB.verify_safe(verif, δ, solver)
 
 @testset "verify safe: empty" begin
     @test r == -Inf
@@ -96,7 +105,7 @@ x, r, loc = CPB.verify_safe(verif, solver)
 end
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_BF(verif, solver)
+x, r, loc = CPB.verify_BF(verif, δ, solver)
 
 @testset "verify BF: empty" begin
     @test r == -Inf
@@ -108,11 +117,11 @@ mpf_BF = MultiPolyFunc{2,2}()
 CPB.add_af!(mpf_BF, 2, SVector(1.0, 0.0), -1.0)
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_BF(verif, solver)
+x, r, loc = CPB.verify_BF(verif, δ, solver)
 
-@testset "verify BF: satisfied" begin
-    @test r == 0.0
-    @test x[2] ≈ 1
+@testset "verify BF: unsatisfied" begin
+    @test r ≈ δ/2
+    @test x[2] ≈ 1 - δ/2
     @test loc == 1
 end
 
@@ -132,11 +141,11 @@ CPB.add_af!(mpf_safe, 1, SVector(0.0, -1.0), -1.0)
 CPB.add_af!(mpf_safe, 2, SVector(0.0, -1.0), -1.0)
 
 verif = Verifier(mpf_safe, mpf_inv, mpf_BF, sys, xmax)
-x, r, loc = CPB.verify_safe(verif, solver)
+x, r, loc = CPB.verify_safe(verif, δ, solver)
 
 @testset "verify safe: unsafe" begin
-    @test r ≈ 2
-    @test x[1] ≈ 2
+    @test r ≈ 1.5
+    @test x[1] ≈ 0.5
     @test loc == 1
 end
 

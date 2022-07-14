@@ -16,14 +16,14 @@ struct Learner{N,M}
     mpf_inv::MultiPolyFunc{N,M}
     iset::PointSet{N,M}
     ϵ::Float64
+    δ::Float64
     tols::Dict{Symbol,Float64}
     params::Dict{Symbol,Float64}
 end
 
-function Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ)
+function Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ)
     tols = Dict([
         :rad => eps(1.0),
-        :verif => -eps(1.0),
         :dom => 1e-8
     ])
     params = Dict([
@@ -31,7 +31,7 @@ function Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ)
         :bigM => 1e3,
         :xmax => 1e3,
     ])
-    return Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, tols, params)
+    return Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ, tols, params)
 end
 
 _setsafe!(D, k, v) = (@assert haskey(D, k); D[k] = v)
@@ -62,8 +62,7 @@ function _add_evidences_lie(gen, sys, loc, point, tol_dom)
 end
 
 function learn_lyapunov!(
-        lear::Learner{N,M}, iter_max, solver_gen, solver_verif;
-        do_print=true, tracerec=nothing
+        lear::Learner{N,M}, iter_max, solver_gen, solver_verif; do_print=true
     ) where {N,M}
     gen = Generator{N}(ntuple(loc -> 0, Val(M)))
     for (loc, points) in enumerate(lear.iset.points_list)
@@ -99,8 +98,8 @@ function learn_lyapunov!(
         # Verifier
         verif = Verifier(lear.mpf_safe, lear.mpf_inv, mpf, lear.sys, xmax)
         do_print && print("|--- Verify safe... ")
-        x, obj, loc = verify_safe(verif, solver_verif)
-        if obj > lear.tols[:verif]
+        x, obj, loc = verify_safe(verif, lear.δ, solver_verif)
+        if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
             gen = _add_evidences_pos(gen, loc, x)
             continue
@@ -108,8 +107,8 @@ function learn_lyapunov!(
             do_print && println("No CE found: ", obj)
         end
         do_print && print("|--- Verify BF... ")
-        x, obj, loc = verify_BF(verif, solver_verif)
-        if obj > lear.tols[:verif]
+        x, obj, loc = verify_BF(verif, lear.δ, solver_verif)
+        if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
             gen = _add_evidences_lie(gen, lear.sys, loc, x, tol_dom)
             continue

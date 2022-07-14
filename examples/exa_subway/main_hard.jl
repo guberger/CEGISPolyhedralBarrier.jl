@@ -138,7 +138,7 @@ for loc = 1:4
 end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-2)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-2, 1e-8)
 CPB.set_tol!(lear, :dom, 1e-8)
 status, mpf, gen, iter = CPB.learn_lyapunov!(lear, Inf, solver, solver)
 

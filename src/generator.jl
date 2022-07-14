@@ -97,20 +97,20 @@ function _compute_mpf(
 
     for evid in gen.neg_evids
         for af in mpf.pfs[evid.loc].afs
-            _add_constr_prob!(prob, model, af, r, evid)
+            _add_constr_evid!(prob, model, af, r, evid)
         end
     end
 
     for evid in gen.pos_evids
         af = mpf.pfs[evid.loc].afs[evid.i]
-        _add_constr_prob!(prob, model, af, r, evid)
+        _add_constr_evid!(prob, model, af, r, evid)
     end
 
     for evid in gen.lie_evids
         bin = @variable(model, binary=true)
         af1 = mpf.pfs[evid.loc1].afs[evid.i1]
         for af2 in mpf.pfs[evid.loc2].afs
-            _add_constr_prob!(prob, model, af1, af2, r, bin, evid)
+            _add_constr_evid!(prob, model, af1, af2, r, bin, evid)
         end
     end
 
@@ -133,19 +133,19 @@ struct GeneratorFeasibility <: GeneratorProblem
     M::Float64
 end
 
-function _add_constr_prob!(
+function _add_constr_evid!(
         prob::GeneratorFeasibility, model, af, r, evid::NegEvidence
     )
     _add_neg_constr!(model, af, r, evid.point, 1, prob.ϵ)
 end
 
-function _add_constr_prob!(
+function _add_constr_evid!(
         prob::GeneratorFeasibility, model, af, r, evid::PosEvidence
     )
     _add_pos_constr!(model, af, r, 0, evid.point, 1, 0, prob.ϵ)
 end
 
-function _add_constr_prob!(
+function _add_constr_evid!(
         prob::GeneratorFeasibility, model, af1, af2, r, bin, evid::LieEvidence
     )
     _add_pos_constr!(model, af1, r, bin, evid.point1, 1, prob.M, prob.ϵ)
@@ -163,19 +163,19 @@ struct GeneratorEvidence <: GeneratorProblem
     M::Float64
 end
 
-function _add_constr_prob!(
+function _add_constr_evid!(
         ::GeneratorEvidence, model, af, r, evid::NegEvidence
     )
     _add_neg_constr!(model, af, r, evid.point, 1, 0)
 end
 
-function _add_constr_prob!(
+function _add_constr_evid!(
         ::GeneratorEvidence, model, af, r, evid::PosEvidence
     )
     _add_pos_constr!(model, af, r, 0, evid.point, 1, 0, 0)
 end
 
-function _add_constr_prob!(
+function _add_constr_evid!(
         prob::GeneratorEvidence, model, af1, af2, r, bin, evid::LieEvidence
     )
     _add_pos_constr!(model, af1, r, bin, evid.point1, 1, prob.M, 0)

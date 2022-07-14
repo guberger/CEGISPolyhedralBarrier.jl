@@ -53,7 +53,7 @@ mpf_inv = MultiPolyFunc{1,2}()
 CPB.add_af!(mpf_inv, 1, SVector(-1.0), 0.0)
 CPB.add_af!(mpf_inv, 2, SVector(-1.0), 0.0)
 
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3, 1e-8)
 CPB.set_tol!(lear, :rad, 10)
 CPB.set_param!(lear, :xmax, 1e2)
 
@@ -64,7 +64,7 @@ CPB.set_param!(lear, :xmax, 1e2)
     @test lear.params[:xmax] ≈ 100
 end
 
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3, 1e-8)
 CPB.set_tol!(lear, :rad, 0)
 CPB.set_param!(lear, :bigM, 1e3)
 
@@ -80,7 +80,7 @@ status, mpf, gen, iter = CPB.learn_lyapunov!(
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
-    @test iter == 3
+    @test iter == 5
 end
 
 CPB.set_tol!(lear, :rad, 1.0)
