@@ -1,44 +1,16 @@
-struct NegEvidence{N}
-    loc::Int
-    point::Point{N}
-end
-
-struct PosEvidence{N}
-    loc::Int
-    i::Int
-    point::Point{N}
-end
-
-struct LieEvidence{N}
-    loc1::Int
-    i1::Int
-    point1::Point{N}
-    loc2::Int
-    point2::Point{N} # A*point1 + b
-    nA::Float64 # opnorm(A)
-end
-
 struct Generator{N,M}
-    nafs::NTuple{M,Int}
-    neg_evids::Vector{NegEvidence{N}}
-    pos_evids::Vector{PosEvidence{N}}
-    lie_evids::Vector{LieEvidence{N}}
+    neg_evids::PointSet{N,M}
+    pos_evids::PointSet{N,M}
 end
 
-Generator{N}(nafs::NTuple{M,Int}) where {N,M} = Generator{N,M}(
-    nafs, NegEvidence{N}[], PosEvidence{N}[], LieEvidence{N}[]
-)
+Generator{N,M}() where {N,M} = Generator(PointSet{N,M}(), PointSet{N,M}())
 
-function add_evidence!(gen::Generator, evid::NegEvidence)
-    push!(gen.neg_evids, evid)
+function add_neg_evidence!(gen::Generator, loc, point)
+    add_point!(gen.neg_evids, loc, point)
 end
 
-function add_evidence!(gen::Generator, evid::PosEvidence)
-    push!(gen.pos_evids, evid)
-end
-
-function add_evidence!(gen::Generator, evid::LieEvidence)
-    push!(gen.lie_evids, evid)
+function add_pos_evidence!(gen::Generator, loc, point)
+    add_point!(gen.pos_evids, loc, point)
 end
 
 ## Compute afs
@@ -77,12 +49,8 @@ function _add_neg_constr!(model, af, r, point, α, γ)
     @constraint(model, _eval(af, point) + α*r + γ ≤ 0)
 end
 
-function _add_pos_constr!(model, af, r, bin, point, α, β, γ)
-    @constraint(model, _eval(af, point) + β*bin ≥ α*r + γ)
-end
-
-function _add_lie_constr(model, af, r, bin, point, α, β, γ)
-    @constraint(model, _eval(af, point) + α*r + γ ≤ β*(1 - bin))
+function _add_pos_constr!(model, af, r, point, α, γ)
+    @constraint(model, _eval(af, point) - α*r - γ ≥ 0)
 end
 
 _value(af::_AF) = AffForm(value.(af.a), value(af.β))
@@ -93,24 +61,18 @@ function _compute_mpf(
         prob::GeneratorProblem, gen::Generator{N}, βmax, solver
     ) where N
     model = solver()
-    mpf, r = _add_vars!(model, Val(N), βmax, gen.nafs)
+    nafs = length.(gen.pos_evids.points_list)
+    mpf, r = _add_vars!(model, Val(N), βmax, nafs)
 
-    for evid in gen.neg_evids
-        for af in mpf.pfs[evid.loc].afs
-            _add_constr_evid!(prob, model, af, r, evid)
+    for (pf, points) in zip(mpf.pfs, gen.neg_evids.points_list)
+        for (af, point) in Iterators.product(pf.afs, points)
+            _add_constr_neg_evid!(prob, model, af, r, point)
         end
     end
 
-    for evid in gen.pos_evids
-        af = mpf.pfs[evid.loc].afs[evid.i]
-        _add_constr_evid!(prob, model, af, r, evid)
-    end
-
-    for evid in gen.lie_evids
-        bin = @variable(model, binary=true)
-        af1 = mpf.pfs[evid.loc1].afs[evid.i1]
-        for af2 in mpf.pfs[evid.loc2].afs
-            _add_constr_evid!(prob, model, af1, af2, r, bin, evid)
+    for (pf, points) in zip(mpf.pfs, gen.pos_evids.points_list)
+        for (af, point) in zip(pf.afs, points)
+            _add_constr_pos_evid!(prob, model, af, r, point)
         end
     end
 
@@ -126,63 +88,21 @@ function _compute_mpf(
     )), value(r)
 end
 
-## Feasibility
+## Robust
 
-struct GeneratorFeasibility <: GeneratorProblem
+struct GeneratorRobust <: GeneratorProblem
     ϵ::Float64
-    M::Float64
 end
 
-function _add_constr_evid!(
-        prob::GeneratorFeasibility, model, af, r, evid::NegEvidence
-    )
-    _add_neg_constr!(model, af, r, evid.point, 1, prob.ϵ)
+function _add_constr_neg_evid!(prob::GeneratorRobust, model, af, r, point)
+    _add_neg_constr!(model, af, r, point, 1, prob.ϵ)
 end
 
-function _add_constr_evid!(
-        prob::GeneratorFeasibility, model, af, r, evid::PosEvidence
-    )
-    _add_pos_constr!(model, af, r, 0, evid.point, 1, 0, prob.ϵ)
+function _add_constr_pos_evid!(prob::GeneratorRobust, model, af, r, point)
+    _add_pos_constr!(model, af, r, point, 1, prob.ϵ)
 end
 
-function _add_constr_evid!(
-        prob::GeneratorFeasibility, model, af1, af2, r, bin, evid::LieEvidence
-    )
-    _add_pos_constr!(model, af1, r, bin, evid.point1, 1, prob.M, prob.ϵ)
-    _add_lie_constr(model, af2, r, bin, evid.point2, 1, prob.M, prob.ϵ)
-end
-
-function compute_mpf_feasibility(gen::Generator, ϵ, M, βmax, solver)
-    prob = GeneratorFeasibility(ϵ, M)
-    return _compute_mpf(prob, gen, βmax, solver)
-end
-
-## Evidence
-
-struct GeneratorEvidence <: GeneratorProblem
-    M::Float64
-end
-
-function _add_constr_evid!(
-        ::GeneratorEvidence, model, af, r, evid::NegEvidence
-    )
-    _add_neg_constr!(model, af, r, evid.point, 1, 0)
-end
-
-function _add_constr_evid!(
-        ::GeneratorEvidence, model, af, r, evid::PosEvidence
-    )
-    _add_pos_constr!(model, af, r, 0, evid.point, 1, 0, 0)
-end
-
-function _add_constr_evid!(
-        prob::GeneratorEvidence, model, af1, af2, r, bin, evid::LieEvidence
-    )
-    _add_pos_constr!(model, af1, r, bin, evid.point1, 1, prob.M, 0)
-    _add_lie_constr(model, af2, r, bin, evid.point2, evid.nA, prob.M, 0)
-end
-
-function compute_mpf_evidence(gen::Generator, M, βmax, solver)
-    prob = GeneratorEvidence(M)
+function compute_mpf_robust(gen::Generator, ϵ, βmax, solver)
+    prob = GeneratorRobust(ϵ)
     return _compute_mpf(prob, gen, βmax, solver)
 end

@@ -47,17 +47,15 @@ add_piece!(sys::System, piece::Piece) = push!(sys.pieces, piece)
 add_piece!(sys::System, piece_...) = add_piece!(sys, Piece(piece_...))
 
 struct PointSet{N,M}
-    points_list::NTuple{M,Vector{SVector{N,Float64}}}
+    points_list::NTuple{M,Vector{Point{N}}}
 end
 
-PointSet{N,M}() where {N,M} = PointSet(
-    ntuple(loc -> SVector{N,Float64}[], Val(M))
-)
+PointSet{N,M}() where {N,M} = PointSet(ntuple(loc -> Point{N}[], Val(M)))
 add_point!(S::PointSet, loc::Int, point) = push!(S.points_list[loc], point)
 # Base.empty!(S::PointSet) = foreach(points -> empty!(points), S.points_list)
 
 include("generator.jl")
-include("verifier.jl")
-include("learner.jl")
+# include("verifier.jl")
+# include("learner.jl")
 
 end # module
