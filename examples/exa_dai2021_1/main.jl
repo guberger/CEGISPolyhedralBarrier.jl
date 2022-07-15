@@ -71,7 +71,7 @@ CPB.add_point!(iset, 1, SVector(0.0, 1.0))
 # Illustration
 fig = figure(0, figsize=(15, 8))
 ax_ = fig.subplots(
-    nrows=3, ncols=4,
+    nrows=2, ncols=4,
     gridspec_kw=Dict("wspace"=>0.2, "hspace"=>0.1),
     subplot_kw=Dict("aspect"=>"equal")
 )
@@ -117,21 +117,28 @@ for (loc, pf) in enumerate(mpf.pfs)
 end
 
 for (iter, wit) in enumerate(rec.wit_list)
-    for (loc, points) in enumerate(wit.neg.points_list)
+    for (loc, points) in enumerate(wit.inside.points_list)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="blue", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.unsafe.points_list)
+    for (loc, points) in enumerate(wit.image.points_list)
+        @assert loc == 1
+        for point in points
+            plot_point!(ax_[iter], point, mc="purple", ms=5)
+        end
+    end
+
+    for (loc, points) in enumerate(wit.outside.points_list)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="red", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.pos.points_list)
+    for (loc, points) in enumerate(wit.unknown.points_list)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="orange", ms=5)

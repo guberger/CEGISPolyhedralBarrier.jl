@@ -34,12 +34,13 @@ set_param!(lear::Learner, s::Symbol, v) = _setsafe!(lear.params, s, v)
 
 # Witness
 struct Witness{N,M}
-    neg::PointSet{N,M}
-    unsafe::PointSet{N,M}
-    pos::PointSet{N,M}
+    inside::PointSet{N,M}
+    image::PointSet{N,M}
+    outside::PointSet{N,M}
+    unknown::PointSet{N,M}
 end
 
-Witness{N,M}() where {N,M} = Witness(ntuple(k -> PointSet{N,M}(), Val(3))...)
+Witness{N,M}() where {N,M} = Witness(ntuple(k -> PointSet{N,M}(), Val(4))...)
 
 # Recorder
 
@@ -53,10 +54,37 @@ TraceRecorder{N,M}() where {N,M} = TraceRecorder(Witness{N,M}[])
 TraceRecorder(::Learner{N,M}) where {N,M} = TraceRecorder{N,M}()
 
 function snapshot(rec::TraceRecorder, wit::Witness)
-    neg_ = PointSet(copy.(wit.neg.points_list))
-    unsafe_ = PointSet(copy.(wit.unsafe.points_list))
-    pos_ = PointSet(copy.(wit.pos.points_list))
-    push!(rec.wit_list, Witness(neg_, unsafe_, pos_))
+    inside_ = PointSet(copy.(wit.inside.points_list))
+    image_ = PointSet(copy.(wit.image.points_list))
+    outside_ = PointSet(copy.(wit.outside.points_list))
+    unknown_ = PointSet(copy.(wit.unknown.points_list))
+    push!(rec.wit_list, Witness(inside_, image_, outside_, unknown_))
+end
+
+# Add new point to invariant set
+function _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
+    add_point!(wit.inside, loc, point)
+    loc ∉ loc_stack && push!(loc_stack, loc)
+    for piece in sys.pieces
+        loc != piece.loc1 && continue
+        !_prox(piece.pf_dom, point, tol_dom) && continue
+        loc2 = piece.loc2
+        add_point!(wit.image, loc2, piece.A*point + piece.b)
+        loc2 ∉ loc_stack && push!(loc_stack, loc2)
+    end
+end
+
+function _is_outside(sys, mpf_safe, loc, point, ϵ, tol_dom)
+    for piece in sys.pieces
+        loc != piece.loc1 && continue
+        !_prox(piece.pf_dom, point, tol_dom) && continue
+        loc2 = piece.loc2
+        point2 = piece.A*point + piece.b
+        if !_prox(mpf_safe.pfs[loc2], point2, -2*ϵ)
+            return true
+        end
+    end
+    return false
 end
 
 ## Learn Barrier
@@ -64,23 +92,25 @@ function learn_lyapunov!(
         lear::Learner{N,M}, iter_max, solver_sep, solver_verif;
         do_print=true, rec=nothing
     ) where {N,M}
+    sys = lear.sys
     ϵ = lear.ϵ
+    δ = lear.δ
     βmax = lear.params[:βmax]
     xmax = lear.params[:xmax]
     tol_dom = lear.params[:tol_dom]
 
     wit = Witness{N,M}()
-    temp_pos_set = PointSet{N,M}()
+    temp_unknown_set = PointSet{N,M}()
+    loc_stack = Int[]
 
     for (loc, points) in enumerate(lear.iset.points_list)
         for point in points
-            add_point!(wit.neg, loc, point)
+            _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
         end
     end
 
     mpf = MultiPolyFunc{N,M}()
     iter = 0
-    loc_stack = collect(1:M)
     
     while !isempty(loc_stack)        
         iter += 1
@@ -94,40 +124,46 @@ function learn_lyapunov!(
 
         loc = pop!(loc_stack)
         empty!(mpf, loc)
-        neg_points = wit.neg.points_list[loc]
+        inside_points = wit.inside.points_list[loc]
+        image_points = wit.image.points_list[loc]
 
-        # Sep unsafe
-        for point in wit.unsafe.points_list[loc]
-            af, r = compute_af(neg_points, point, ϵ, βmax, solver_sep)
+        # Sep outside
+        for point in wit.outside.points_list[loc]
+            af, r = compute_af(image_points, point, ϵ, βmax, solver_sep)
             if r < 0
                 println(string("Satisfiability radius too small: ", r))
                 return RADIUS_TOO_SMALL, mpf, wit
             end
             add_af!(mpf, loc, af)
+            af, r = compute_af(inside_points, point, 0, βmax, solver_sep)
+            if r < 0
+                println(string("Satisfiability radius too small: ", r))
+                return RADIUS_TOO_SMALL, mpf, wit
+            end
         end
 
-        empty!(temp_pos_set, loc)
+        empty!(temp_unknown_set, loc)
 
-        while !isempty(wit.pos.points_list[loc])
-            point = pop_point!(wit.pos, loc)
-            af, r = compute_af(neg_points, point, ϵ, βmax, solver_sep)
+        while !isempty(wit.unknown.points_list[loc])
+            point = pop_point!(wit.unknown, loc)
+            af, r = compute_af(image_points, point, ϵ, βmax, solver_sep)
             if r < 0
                 println(string("|--- radius: ", r))
-                for piece in lear.sys.pieces
-                    loc != piece.loc1 && continue
-                    !_prox(piece.pf_dom, point, tol_dom) && continue
-                    loc2 = piece.loc2
-                    add_point!(wit.neg, loc2, piece.A*point + piece.b)
-                    loc2 ∉ loc_stack && push!(loc_stack, loc2)
-                end
+                _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
                 break
             end
             add_af!(mpf, loc, af)
-            add_point!(temp_pos_set, loc, point)
+            af, r = compute_af(inside_points, point, 0, βmax, solver_sep)
+            if r < 0
+                println(string("|--- radius: ", r))
+                _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
+                break
+            end
+            add_point!(temp_unknown_set, loc, point)
         end
 
-        for point in temp_pos_set.points_list[loc]
-            add_point!(wit.pos, loc, point)
+        for point in temp_unknown_set.points_list[loc]
+            add_point!(wit.unknown, loc, point)
         end
 
         !isempty(loc_stack) && continue
@@ -135,12 +171,11 @@ function learn_lyapunov!(
         # Verifier
         do_print && print("|--- Verify safe... ")
         x, obj, loc = verify_safe(
-            lear.sys, lear.mpf_safe, lear.mpf_inv,
-            mpf, xmax, -lear.δ, solver_verif
+            sys, lear.mpf_safe, lear.mpf_inv, mpf, xmax, -δ, solver_verif
         )
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            add_point!(wit.unsafe, loc, x)
+            add_point!(wit.outside, loc, x)
             push!(loc_stack, loc)
             continue
         else
@@ -148,27 +183,15 @@ function learn_lyapunov!(
         end
         do_print && print("|--- Verify BF... ")
         x, obj, loc = verify_BF(
-            lear.sys, lear.mpf_safe, lear.mpf_inv,
-            mpf, xmax, -lear.δ, solver_verif
+            sys, lear.mpf_safe, lear.mpf_inv, mpf, xmax, -δ, solver_verif
         )
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            flag_unsafe = false
-            # for piece in lear.sys.pieces
-            #     loc != piece.loc1 && continue
-            #     !_prox(piece.pf_dom, x, tol_dom) && continue
-            #     loc2 = piece.loc2
-            #     point2 = piece.A*x + piece.b
-            #     if !_prox(lear.mpf_safe.pfs[loc2], point2, -2*lear.ϵ)
-            #         flag_unsafe = true
-            #         break
-            #     end
-            # end
-            if flag_unsafe
+            if _is_outside(sys, lear.mpf_safe, loc, x, ϵ, tol_dom)
                 @assert false
-                add_point!(wit.unsafe, loc, x)
+                add_point!(wit.outside, loc, x)
             else
-                add_point!(wit.pos, loc, x)
+                add_point!(wit.unknown, loc, x)
             end
             push!(loc_stack, loc)
             continue
@@ -176,6 +199,7 @@ function learn_lyapunov!(
             do_print && println("No CE found: ", obj)
         end
     end
+
     println("Valid CLF: terminated")
     return BARRIER_FOUND, mpf, wit
 end

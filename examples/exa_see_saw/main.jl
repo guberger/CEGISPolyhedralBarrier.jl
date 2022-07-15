@@ -97,19 +97,25 @@ for (loc, pf) in enumerate(mpf.pfs)
     plot_level!(ax_[loc], pf.afs, lims, fc="red", ec="red", fa=0.1, ew=0.5)
 end
 
-for (loc, points) in enumerate(wit.neg.points_list)
+for (loc, points) in enumerate(wit.inside.points_list)
     for point in points
         plot_point!(ax_[loc], point, mc="blue")
     end
 end
 
-for (loc, points) in enumerate(wit.unsafe.points_list)
+for (loc, points) in enumerate(wit.image.points_list)
+    for point in points
+        plot_point!(ax_[loc], point, mc="purple")
+    end
+end
+
+for (loc, points) in enumerate(wit.outside.points_list)
     for point in points
         plot_point!(ax_[loc], point, mc="red")
     end
 end
 
-for (loc, points) in enumerate(wit.pos.points_list)
+for (loc, points) in enumerate(wit.unknown.points_list)
     for point in points
         plot_point!(ax_[loc], point, mc="orange")
     end

@@ -76,7 +76,7 @@ status, = CPB.learn_lyapunov!(
     @test status == CPB.BARRIER_FOUND
 end
 
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.5, 1e-8)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.55, 1e-8)
 status, = CPB.learn_lyapunov!(lear, 20, solver, solver)
 
 @testset "learn lyapunov disc: radius too small" begin
