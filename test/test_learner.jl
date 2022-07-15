@@ -54,36 +54,29 @@ CPB.add_af!(mpf_inv, 1, SVector(-1.0), 0.0)
 CPB.add_af!(mpf_inv, 2, SVector(-1.0), 0.0)
 
 lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3, 1e-8)
-CPB.set_tol!(lear, :rad, 10)
 CPB.set_param!(lear, :xmax, 1e2)
 
 @testset "set tol and param" begin
-    @test_throws AssertionError CPB.set_tol!(lear, :dumb, 0)
     @test_throws AssertionError CPB.set_param!(lear, :dumb, 0)
-    @test lear.tols[:rad] ≈ 10
     @test lear.params[:xmax] ≈ 100
 end
 
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-3, 1e-8)
-CPB.set_tol!(lear, :rad, 0)
-CPB.set_param!(lear, :bigM, 1e3)
-
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-1, 1e-8)
 status, = CPB.learn_lyapunov!(lear, 1, solver, solver)
 
 @testset "learn lyapunov disc: max iter" begin
     @test status == CPB.MAX_ITER_REACHED
 end
 
-status, mpf, gen, iter = CPB.learn_lyapunov!(
-    lear, 5, solver, solver, do_print=true
+status, = CPB.learn_lyapunov!(
+    lear, 500, solver, solver, do_print=true
 )
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
-    @test iter == 5
 end
 
-CPB.set_tol!(lear, :rad, 1.0)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.5, 1e-8)
 status, = CPB.learn_lyapunov!(lear, 20, solver, solver)
 
 @testset "learn lyapunov disc: radius too small" begin
