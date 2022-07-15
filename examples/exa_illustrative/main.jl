@@ -87,9 +87,8 @@ for piece in sys.pieces
 end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-2, 1e-8)
-CPB.set_tol!(lear, :dom, 1e-8)
-status, mpf, gen, iter = CPB.learn_lyapunov!(lear, Inf, solver, solver)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-1, 1e-8)
+status, mpf, wit = CPB.learn_lyapunov!(lear, Inf, solver, solver)
 
 display(status)
 
@@ -97,17 +96,28 @@ for (loc, pf) in enumerate(mpf.pfs)
     plot_level!(ax_[loc], pf.afs, lims, fc="red", ec="red", fa=0.1, ew=0.5)
 end
 
-for evid in gen.neg_evids
-    plot_point!(ax_[evid.loc], evid.point, mc="purple")
+for (loc, points) in enumerate(wit.soft_evid.points_list)
+    for point in points
+        plot_point!(ax_[loc], point, mc="purple")
+    end
 end
 
-for evid in gen.pos_evids
-    plot_point!(ax_[evid.loc], evid.point, mc="orange")
+for (loc, points) in enumerate(wit.hard_evid.points_list)
+    for point in points
+        plot_point!(ax_[loc], point, mc="blue")
+    end
 end
 
-for evid in gen.lie_evids
-    plot_point!(ax_[evid.loc1], evid.point1, mc="green")
-    plot_point!(ax_[evid.loc2], evid.point2, mc="blue")
+for (loc, points) in enumerate(wit.unsafe.points_list)
+    for point in points
+        plot_point!(ax_[loc], point, mc="red")
+    end
+end
+
+for (loc, points) in enumerate(wit.pos.points_list)
+    for point in points
+        plot_point!(ax_[loc], point, mc="orange")
+    end
 end
 
 fig.savefig(string(

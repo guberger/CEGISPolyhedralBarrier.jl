@@ -68,13 +68,12 @@ status, = CPB.learn_lyapunov!(lear, 1, solver, solver)
     @test status == CPB.MAX_ITER_REACHED
 end
 
-status, mpf, seps, iter = CPB.learn_lyapunov!(
+status, = CPB.learn_lyapunov!(
     lear, 500, solver, solver, do_print=true
 )
 
 @testset "learn lyapunov disc: found" begin
     @test status == CPB.BARRIER_FOUND
-    @test iter == 15
 end
 
 lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.5, 1e-8)

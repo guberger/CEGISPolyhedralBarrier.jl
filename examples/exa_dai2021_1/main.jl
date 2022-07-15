@@ -69,9 +69,12 @@ CPB.add_point!(iset, 1, SVector(0.0, -1.0))
 CPB.add_point!(iset, 1, SVector(0.0, 1.0))
 
 # Illustration
-fig = figure(0, figsize=(10, 8))
-ax = fig.add_subplot(aspect="equal")
-ax_ = (ax,)
+fig = figure(0, figsize=(15, 8))
+ax_ = fig.subplots(
+    nrows=3, ncols=4,
+    gridspec_kw=Dict("wspace"=>0.2, "hspace"=>0.1),
+    subplot_kw=Dict("aspect"=>"equal")
+)
 
 xlims = (-4.2, 4.2)
 ylims = (-4.2, 4.2)
@@ -81,44 +84,66 @@ for ax in ax_
     ax.set_xlim(xlims...)
     ax.set_ylim(ylims...)
     ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
+
+    for (loc, pf) in enumerate(mpf_safe.pfs)
+        @assert loc == 1
+        plot_level!(ax, pf.afs, lims, fc="green", fa=0.1, ec="green")
+    end
+
+    for (loc, pf) in enumerate(mpf_inv.pfs)
+        @assert loc == 1
+        plot_level!(ax, pf.afs, lims, fc="none", ec="yellow")
+    end
+
+    for piece in sys.pieces
+        @assert piece.loc1 == 1
+        plot_level!(ax, piece.pf_dom.afs, lims, fc="blue", fa=0.1, ec="blue")
+    end
 end
 
-for (loc, pf) in enumerate(mpf_safe.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="green", fa=0.1, ec="green")
-end
-
-for (loc, pf) in enumerate(mpf_inv.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="none", ec="yellow")
-end
-
-for piece in sys.pieces
-    plot_level!(
-        ax_[piece.loc1], piece.pf_dom.afs, lims, fc="blue", fa=0.1, ec="blue"
-    )
-end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-2, 1e-8)
-CPB.set_tol!(lear, :dom, 1e-8)
-status, mpf, gen, iter = CPB.learn_lyapunov!(lear, Inf, solver, solver)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.1, 1e-8)
+rec = CPB.TraceRecorder(lear)
+status, mpf, wit = CPB.learn_lyapunov!(lear, Inf, solver, solver, rec=rec)
 
 display(status)
 
 for (loc, pf) in enumerate(mpf.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="red", ec="red", fa=0.1, ew=0.5)
+    plot_level!(
+        ax_[length(rec.wit_list) + 1], pf.afs, lims,
+        fc="red", ec="red", fa=0.1, ew=0.5
+    )
 end
 
-for evid in gen.neg_evids
-    plot_point!(ax_[evid.loc], evid.point, mc="purple")
-end
+for (iter, wit) in enumerate(rec.wit_list)
+    for (loc, points) in enumerate(wit.soft_evid.points_list)
+        @assert loc == 1
+        for point in points
+            plot_point!(ax_[iter], point, mc="purple", ms=5)
+        end
+    end
 
-for evid in gen.pos_evids
-    plot_point!(ax_[evid.loc], evid.point, mc="orange")
-end
+    for (loc, points) in enumerate(wit.hard_evid.points_list)
+        @assert loc == 1
+        for point in points
+            plot_point!(ax_[iter], point, mc="blue", ms=5)
+        end
+    end
 
-for evid in gen.lie_evids
-    plot_point!(ax_[evid.loc1], evid.point1, mc="green")
-    plot_point!(ax_[evid.loc2], evid.point2, mc="blue")
+    for (loc, points) in enumerate(wit.unsafe.points_list)
+        @assert loc == 1
+        for point in points
+            plot_point!(ax_[iter], point, mc="red", ms=5)
+        end
+    end
+
+    for (loc, points) in enumerate(wit.pos.points_list)
+        @assert loc == 1
+        for point in points
+            plot_point!(ax_[iter], point, mc="orange", ms=5)
+        end
+    end
 end
 
 fig.savefig(string(

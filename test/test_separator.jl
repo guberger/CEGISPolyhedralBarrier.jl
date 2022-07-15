@@ -9,7 +9,7 @@ else
     using CEGISPolyhedralBarrier
 end
 CPB = CEGISPolyhedralBarrier
-Separator = CPB.Separator
+Point = CPB.Point
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
@@ -19,9 +19,10 @@ solver() = Model(optimizer_with_attributes(
 βmax = 100.0
 
 ## Empty
-sep = Separator{2}(ϵ, βmax)
+soft_evids = Point{2}[]
+hard_evids = Point{2}[]
 point = SVector(0.0, 0.0)
-af, r = CPB.compute_af(sep, point, solver)
+af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
 
 @testset "compute sep empty" begin
     @test r ≈ 10
@@ -29,10 +30,10 @@ af, r = CPB.compute_af(sep, point, solver)
 end
 
 ## Set #1
-sep = Separator{2}(ϵ, βmax)
-CPB.add_soft_evid!(sep, SVector(0.0, 0.0))
+soft_evids = [SVector(0.0, 0.0)]
+hard_evids = Point{2}[]
 point = SVector(0.5, 0.0)
-af, r = CPB.compute_af(sep, point, solver)
+af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
 
 @testset "compute sep #1" begin
     @test r ≈ 0.5/2 - ϵ/2
@@ -40,11 +41,10 @@ af, r = CPB.compute_af(sep, point, solver)
 end
 
 ## Set #2
-sep = Separator{2}(ϵ, βmax)
-CPB.add_soft_evid!(sep, SVector(0.0, 0.0))
-CPB.add_hard_evid!(sep, SVector(4.0, 0.0))
+soft_evids = [SVector(0.0, 0.0)]
+hard_evids = [SVector(4.0, 0.0)]
 point = SVector(8.0, 0.0)
-af, r = CPB.compute_af(sep, point, solver)
+af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
 
 @testset "compute sep #2" begin
     @test r ≈ 2 - ϵ
@@ -53,11 +53,7 @@ end
 
 ## Set #3
 βmax = 1.0
-sep = Separator{2}(ϵ, βmax)
-CPB.add_soft_evid!(sep, SVector(0.0, 0.0))
-CPB.add_hard_evid!(sep, SVector(4.0, 0.0))
-point = SVector(8.0, 0.0)
-af, r = CPB.compute_af(sep, point, solver)
+af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
 
 @testset "compute sep #3" begin
     @test r ≈ 1/3 - ϵ
