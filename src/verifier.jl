@@ -1,11 +1,3 @@
-struct Verifier{N,M}
-    mpf_safe::MultiPolyFunc{N,M}
-    mpf_inv::MultiPolyFunc{N,M}
-    mpf_BF::MultiPolyFunc{N,M}
-    sys::System{N}
-    xmax::Float64
-end
-
 abstract type VerifierProblem end
 
 function _optim_verif(
@@ -60,39 +52,43 @@ function _verify(
 end
 
 struct VerifierSafe <: VerifierProblem
-    δ::Float64
+    η::Float64
 end
 
 function _add_constr_in!(::VerifierSafe, model, af, x, r)
-    @constraint(model, _eval(af, x) + norm(af.a, 1)*r ≤ 0)
+    @constraint(model, _eval(af, x) + norm(af.a, Inf)*r ≤ 0)
 end
 
 function _add_constr_out!(prob::VerifierSafe, model, af, x, ::Any)
-    @constraint(model, _eval(af, x) + prob.δ ≥ 0)
+    @constraint(model, _eval(af, x) ≥ norm(af.a, Inf)*prob.η)
 end
 
-function verify_safe(verif::Verifier, δ, solver)
-    prob = VerifierSafe(δ)
-    mpfs_in = (verif.mpf_safe, verif.mpf_inv, verif.mpf_BF)
-    mpf_out = verif.mpf_safe
-    return _verify(prob, verif.sys, mpfs_in, mpf_out, verif.xmax, solver)
+function verify_safe(
+        sys::System, mpf_safe::MultiPolyFunc, mpf_inv::MultiPolyFunc,
+        mpf_BF::MultiPolyFunc, xmax::Float64, η, solver
+    )
+    prob = VerifierSafe(η)
+    mpfs_in = (mpf_safe, mpf_inv, mpf_BF)
+    return _verify(prob, sys, mpfs_in, mpf_safe, xmax, solver)
 end
 
 struct VerifierBF <: VerifierProblem
-    δ::Float64
+    η::Float64
 end
 
 function _add_constr_in!(::VerifierBF, model, af, x, r)
-    @constraint(model, _eval(af, x) + norm(af.a, 1)*r ≤ 0)
+    @constraint(model, _eval(af, x) + norm(af.a, Inf)*r ≤ 0)
 end
 
 function _add_constr_out!(prob::VerifierBF, model, af, x, r)
-    @constraint(model, _eval(af, x) - norm(af.a, 1)*r + prob.δ ≥ 0)
+    @constraint(model, _eval(af, x) ≥ norm(af.a, Inf)*(prob.η + r))
 end
 
-function verify_BF(verif::Verifier, δ, solver)
-    prob = VerifierBF(δ)
-    mpfs_in = (verif.mpf_safe, verif.mpf_inv, verif.mpf_BF)
-    mpf_out = verif.mpf_BF
-    return _verify(prob, verif.sys, mpfs_in, mpf_out, verif.xmax, solver)
+function verify_BF(
+        sys::System, mpf_safe::MultiPolyFunc, mpf_inv::MultiPolyFunc,
+        mpf_BF::MultiPolyFunc, xmax::Float64, η, solver
+    )
+    prob = VerifierBF(η)
+    mpfs_in = (mpf_safe, mpf_inv, mpf_BF)
+    return _verify(prob, sys, mpfs_in, mpf_BF, xmax, solver)
 end

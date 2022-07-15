@@ -115,7 +115,7 @@ function learn_lyapunov!(
                 println(string("|--- radius: ", r))
                 for piece in lear.sys.pieces
                     loc != piece.loc1 && continue
-                    !_neg(piece.pf_dom, point, tol_dom) && continue
+                    !_prox(piece.pf_dom, point, tol_dom) && continue
                     loc2 = piece.loc2
                     add_point!(wit.neg, loc2, piece.A*point + piece.b)
                     loc2 ∉ loc_stack && push!(loc_stack, loc2)
@@ -133,9 +133,11 @@ function learn_lyapunov!(
         !isempty(loc_stack) && continue
 
         # Verifier
-        verif = Verifier(lear.mpf_safe, lear.mpf_inv, mpf, lear.sys, xmax)
         do_print && print("|--- Verify safe... ")
-        x, obj, loc = verify_safe(verif, lear.δ, solver_verif)
+        x, obj, loc = verify_safe(
+            lear.sys, lear.mpf_safe, lear.mpf_inv,
+            mpf, xmax, -lear.δ, solver_verif
+        )
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
             add_point!(wit.unsafe, loc, x)
@@ -145,10 +147,29 @@ function learn_lyapunov!(
             do_print && println("No CE found: ", obj)
         end
         do_print && print("|--- Verify BF... ")
-        x, obj, loc = verify_BF(verif, lear.δ, solver_verif)
+        x, obj, loc = verify_BF(
+            lear.sys, lear.mpf_safe, lear.mpf_inv,
+            mpf, xmax, -lear.δ, solver_verif
+        )
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            add_point!(wit.pos, loc, x)
+            flag_unsafe = false
+            # for piece in lear.sys.pieces
+            #     loc != piece.loc1 && continue
+            #     !_prox(piece.pf_dom, x, tol_dom) && continue
+            #     loc2 = piece.loc2
+            #     point2 = piece.A*x + piece.b
+            #     if !_prox(lear.mpf_safe.pfs[loc2], point2, -2*lear.ϵ)
+            #         flag_unsafe = true
+            #         break
+            #     end
+            # end
+            if flag_unsafe
+                @assert false
+                add_point!(wit.unsafe, loc, x)
+            else
+                add_point!(wit.pos, loc, x)
+            end
             push!(loc_stack, loc)
             continue
         else

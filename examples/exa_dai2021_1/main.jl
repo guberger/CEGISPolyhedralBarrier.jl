@@ -76,14 +76,14 @@ ax_ = fig.subplots(
     subplot_kw=Dict("aspect"=>"equal")
 )
 
-xlims = (-4.2, 4.2)
-ylims = (-4.2, 4.2)
+xlims = (-3.2, 3.2)
+ylims = (-3.2, 3.2)
 lims = [(-10, -10), (10, 10)]
 
 for ax in ax_
     ax.set_xlim(xlims...)
     ax.set_ylim(ylims...)
-    ax.plot(0, 0, marker="x", ms=10, c="black", mew=2.5)
+    ax.plot(0, 0, marker="x", ms=7, c="black", mew=1.5)
 
     for (loc, pf) in enumerate(mpf_safe.pfs)
         @assert loc == 1
@@ -117,14 +117,7 @@ for (loc, pf) in enumerate(mpf.pfs)
 end
 
 for (iter, wit) in enumerate(rec.wit_list)
-    for (loc, points) in enumerate(wit.soft_evid.points_list)
-        @assert loc == 1
-        for point in points
-            plot_point!(ax_[iter], point, mc="purple", ms=5)
-        end
-    end
-
-    for (loc, points) in enumerate(wit.hard_evid.points_list)
+    for (loc, points) in enumerate(wit.neg.points_list)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="blue", ms=5)

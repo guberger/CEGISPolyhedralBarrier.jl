@@ -20,7 +20,9 @@ PolyFunc{N}() where N = PolyFunc(AffForm{N}[])
 add_af!(pf::PolyFunc, af::AffForm) = push!(pf.afs, af)
 add_af!(pf::PolyFunc, af_...) = add_af!(pf, AffForm(af_...))
 Base.empty!(pf::PolyFunc) = empty!(pf.afs)
-_neg(pf::PolyFunc, point, tol) = all(af -> _eval(af, point) ≤ tol, pf.afs)
+_prox(pf::PolyFunc, point, r) = all(
+    af -> _eval(af, point) ≤ norm(af.a, Inf)*r, pf.afs
+)
 
 struct MultiPolyFunc{N,M}
     pfs::NTuple{M,PolyFunc{N}}
