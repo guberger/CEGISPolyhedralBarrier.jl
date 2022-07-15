@@ -34,15 +34,12 @@ set_param!(lear::Learner, s::Symbol, v) = _setsafe!(lear.params, s, v)
 
 # Witness
 struct Witness{N,M}
-    soft_evid::PointSet{N,M}
-    hard_evid::PointSet{N,M}
+    neg::PointSet{N,M}
     unsafe::PointSet{N,M}
     pos::PointSet{N,M}
 end
 
-Witness{N,M}() where {N,M} = Witness(
-    PointSet{N,M}(), PointSet{N,M}(), PointSet{N,M}(), PointSet{N,M}()
-)
+Witness{N,M}() where {N,M} = Witness(ntuple(k -> PointSet{N,M}(), Val(3))...)
 
 # Recorder
 
@@ -56,11 +53,10 @@ TraceRecorder{N,M}() where {N,M} = TraceRecorder(Witness{N,M}[])
 TraceRecorder(::Learner{N,M}) where {N,M} = TraceRecorder{N,M}()
 
 function snapshot(rec::TraceRecorder, wit::Witness)
-    soft_evid_ = PointSet(copy.(wit.soft_evid.points_list))
-    hard_evid_ = PointSet(copy.(wit.hard_evid.points_list))
+    neg_ = PointSet(copy.(wit.neg.points_list))
     unsafe_ = PointSet(copy.(wit.unsafe.points_list))
     pos_ = PointSet(copy.(wit.pos.points_list))
-    push!(rec.wit_list, Witness(soft_evid_, hard_evid_, unsafe_, pos_))
+    push!(rec.wit_list, Witness(neg_, unsafe_, pos_))
 end
 
 ## Learn Barrier
@@ -78,7 +74,7 @@ function learn_lyapunov!(
 
     for (loc, points) in enumerate(lear.iset.points_list)
         for point in points
-            add_point!(wit.soft_evid, loc, point)
+            add_point!(wit.neg, loc, point)
         end
     end
 
@@ -98,14 +94,11 @@ function learn_lyapunov!(
 
         loc = pop!(loc_stack)
         empty!(mpf, loc)
-        soft_evids = wit.soft_evid.points_list[loc]
-        hard_evids = wit.hard_evid.points_list[loc]
+        neg_points = wit.neg.points_list[loc]
 
         # Sep unsafe
         for point in wit.unsafe.points_list[loc]
-            af, r = compute_af(
-                soft_evids, hard_evids, point, ϵ, βmax, solver_sep
-            )
+            af, r = compute_af(neg_points, point, ϵ, βmax, solver_sep)
             if r < 0
                 println(string("Satisfiability radius too small: ", r))
                 return RADIUS_TOO_SMALL, mpf, wit
@@ -117,17 +110,14 @@ function learn_lyapunov!(
 
         while !isempty(wit.pos.points_list[loc])
             point = pop_point!(wit.pos, loc)
-            af, r = compute_af(
-                soft_evids, hard_evids, point, ϵ, βmax, solver_sep
-            )
+            af, r = compute_af(neg_points, point, ϵ, βmax, solver_sep)
             if r < 0
                 println(string("|--- radius: ", r))
-                add_point!(wit.soft_evid, loc, point)
                 for piece in lear.sys.pieces
                     loc != piece.loc1 && continue
                     !_neg(piece.pf_dom, point, tol_dom) && continue
                     loc2 = piece.loc2
-                    add_point!(wit.hard_evid, loc2, piece.A*point + piece.b)
+                    add_point!(wit.neg, loc2, piece.A*point + piece.b)
                     loc2 ∉ loc_stack && push!(loc_stack, loc2)
                 end
                 break
@@ -141,7 +131,6 @@ function learn_lyapunov!(
         end
 
         !isempty(loc_stack) && continue
-        @assert isempty(loc_stack)
 
         # Verifier
         verif = Verifier(lear.mpf_safe, lear.mpf_inv, mpf, lear.sys, xmax)

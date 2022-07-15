@@ -5,8 +5,8 @@ end
 _eval(af::_AF, point) = dot(point, af.a) + af.β
 
 function compute_af(
-        soft_evids::Vector{Point{N}}, hard_evids::Vector{Point{N}},
-        point::Point{N}, ϵ, βmax, solver) where N
+        neg_points::Vector{Point{N}}, point::Point{N}, ϵ, βmax, solver
+    ) where N
     model = solver()
     a = SVector(ntuple(
         k -> @variable(model, lower_bound=-1, upper_bound=1), Val(N)
@@ -15,11 +15,7 @@ function compute_af(
     r = @variable(model, upper_bound=10)
     af = _AF(a, β)
 
-    for point in soft_evids
-        @constraint(model, _eval(af, point) + r ≤ 0)
-    end
-
-    for point in hard_evids
+    for point in neg_points
         @constraint(model, _eval(af, point) + r + ϵ ≤ 0)
     end
 

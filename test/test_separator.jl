@@ -19,10 +19,9 @@ solver() = Model(optimizer_with_attributes(
 βmax = 100.0
 
 ## Empty
-soft_evids = Point{2}[]
-hard_evids = Point{2}[]
+neg_points = Point{2}[]
 point = SVector(0.0, 0.0)
-af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
+af, r = CPB.compute_af(neg_points, point, ϵ, βmax, solver)
 
 @testset "compute sep empty" begin
     @test r ≈ 10
@@ -30,21 +29,19 @@ af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
 end
 
 ## Set #1
-soft_evids = [SVector(0.0, 0.0)]
-hard_evids = Point{2}[]
+neg_points = [SVector(0.0, 0.0)]
 point = SVector(0.5, 0.0)
-af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
+af, r = CPB.compute_af(neg_points, point, ϵ, βmax, solver)
 
 @testset "compute sep #1" begin
-    @test r ≈ 0.5/2 - ϵ/2
+    @test r ≈ 0.5/2 - ϵ
     @test norm(af.a, Inf) ≈ 1
 end
 
 ## Set #2
-soft_evids = [SVector(0.0, 0.0)]
-hard_evids = [SVector(4.0, 0.0)]
+neg_points = [SVector(0.0, 0.0), SVector(4.0, 0.0)]
 point = SVector(8.0, 0.0)
-af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
+af, r = CPB.compute_af(neg_points, point, ϵ, βmax, solver)
 
 @testset "compute sep #2" begin
     @test r ≈ 2 - ϵ
@@ -53,7 +50,7 @@ end
 
 ## Set #3
 βmax = 1.0
-af, r = CPB.compute_af(soft_evids, hard_evids, point, ϵ, βmax, solver)
+af, r = CPB.compute_af(neg_points, point, ϵ, βmax, solver)
 
 @testset "compute sep #3" begin
     @test r ≈ 1/3 - ϵ
