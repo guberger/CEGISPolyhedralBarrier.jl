@@ -4,8 +4,7 @@
     NOT_SOLVED = 0
     BARRIER_FOUND = 1
     BARRIER_INFEASIBLE = 2
-    RADIUS_TOO_SMALL = 3
-    MAX_ITER_REACHED = 4
+    MAX_ITER_REACHED = 3
 end
 
 ## Learner
@@ -42,25 +41,6 @@ end
 
 Witness{N,M}() where {N,M} = Witness(ntuple(k -> PointSet{N,M}(), Val(4))...)
 
-# Recorder
-
-snapshot(::Nothing, ::Any) = nothing
-
-struct TraceRecorder{N,M}
-    wit_list::Vector{Witness{N,M}}
-end
-
-TraceRecorder{N,M}() where {N,M} = TraceRecorder(Witness{N,M}[])
-TraceRecorder(::Learner{N,M}) where {N,M} = TraceRecorder{N,M}()
-
-function snapshot(rec::TraceRecorder, wit::Witness)
-    inside_ = PointSet(copy.(wit.inside.points_list))
-    image_ = PointSet(copy.(wit.image.points_list))
-    outside_ = PointSet(copy.(wit.outside.points_list))
-    unknown_ = PointSet(copy.(wit.unknown.points_list))
-    push!(rec.wit_list, Witness(inside_, image_, outside_, unknown_))
-end
-
 # Add new point to invariant set
 function _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
     add_point!(wit.inside, loc, point)
@@ -90,13 +70,10 @@ end
 ## Learn Barrier
 function learn_lyapunov!(
         lear::Learner{N,M}, iter_max, solver_sep, solver_verif;
-        do_print=true, rec=nothing
+        do_print=true, callback_fcn=(args...) -> nothing
     ) where {N,M}
-    sys = lear.sys
-    ϵ = lear.ϵ
-    δ = lear.δ
-    βmax = lear.params[:βmax]
-    xmax = lear.params[:xmax]
+    sys, ϵ, δ = lear.sys, lear.ϵ, lear.δ
+    βmax, xmax = lear.params[:βmax], lear.params[:xmax]
     tol_dom = lear.params[:tol_dom]
 
     wit = Witness{N,M}()
@@ -111,6 +88,7 @@ function learn_lyapunov!(
 
     mpf = MultiPolyFunc{N,M}()
     iter = 0
+    _empty_points = Point{N}[]
     
     while !isempty(loc_stack)        
         iter += 1
@@ -120,7 +98,7 @@ function learn_lyapunov!(
             return MAX_ITER_REACHED, mpf, wit
         end
 
-        snapshot(rec, wit)
+        callback_fcn(iter, mpf, wit)
 
         loc = pop!(loc_stack)
         empty!(mpf, loc)
@@ -129,36 +107,46 @@ function learn_lyapunov!(
 
         # Sep outside
         for point in wit.outside.points_list[loc]
-            af, r = compute_af(image_points, point, ϵ, βmax, solver_sep)
+            af, r = compute_af(
+                _empty_points, image_points, point, 0, ϵ, ϵ, βmax, solver_sep
+            )
             if r < 0
                 println(string("Satisfiability radius too small: ", r))
-                return RADIUS_TOO_SMALL, mpf, wit
+                return BARRIER_INFEASIBLE, mpf, wit
             end
             add_af!(mpf, loc, af)
-            af, r = compute_af(inside_points, point, 0, βmax, solver_sep)
+            af, r = compute_af(
+                inside_points, image_points, point, 0, 2*ϵ, 0, βmax, solver_sep
+            )
             if r < 0
                 println(string("Satisfiability radius too small: ", r))
-                return RADIUS_TOO_SMALL, mpf, wit
+                return BARRIER_INFEASIBLE, mpf, wit
             end
+            add_af!(mpf, loc, af)
         end
 
         empty!(temp_unknown_set, loc)
 
         while !isempty(wit.unknown.points_list[loc])
             point = pop_point!(wit.unknown, loc)
-            af, r = compute_af(image_points, point, ϵ, βmax, solver_sep)
+            af, r = compute_af(
+                _empty_points, image_points, point, 0, ϵ, ϵ, βmax, solver_sep
+            )
             if r < 0
                 println(string("|--- radius: ", r))
                 _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
                 break
             end
             add_af!(mpf, loc, af)
-            af, r = compute_af(inside_points, point, 0, βmax, solver_sep)
+            af, r = compute_af(
+                inside_points, image_points, point, 0, 2*ϵ, 0, βmax, solver_sep
+            )
             if r < 0
                 println(string("|--- radius: ", r))
                 _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
                 break
             end
+            add_af!(mpf, loc, af)
             add_point!(temp_unknown_set, loc, point)
         end
 
@@ -188,7 +176,7 @@ function learn_lyapunov!(
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
             if _is_outside(sys, lear.mpf_safe, loc, x, ϵ, tol_dom)
-                @assert false
+                # @assert false
                 add_point!(wit.outside, loc, x)
             else
                 add_point!(wit.unknown, loc, x)

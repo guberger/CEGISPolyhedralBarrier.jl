@@ -5,7 +5,8 @@ end
 _eval(af::_AF, point) = dot(point, af.a) + af.β
 
 function compute_af(
-        neg_points::Vector{Point{N}}, point::Point{N}, η, βmax, solver
+        inside_points::Vector{Point{N}}, image_points::Vector{Point{N}},
+        outside_point::Point{N}, η_inside, η_image, η_outside, βmax, solver
     ) where N
     model = solver()
     a = SVector(ntuple(
@@ -15,11 +16,15 @@ function compute_af(
     r = @variable(model, upper_bound=10)
     af = _AF(a, β)
 
-    for point in neg_points
-        @constraint(model, _eval(af, point) + r + η ≤ 0)
+    for point in inside_points
+        @constraint(model, _eval(af, point) + r + η_inside ≤ 0)
     end
 
-    @constraint(model, _eval(af, point) ≥ r + η)
+    for point in image_points
+        @constraint(model, _eval(af, point) + r + η_image ≤ 0)
+    end
+
+    @constraint(model, _eval(af, outside_point) ≥ r + η_outside)
 
     @objective(model, Max, r)
 
