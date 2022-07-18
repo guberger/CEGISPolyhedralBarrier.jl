@@ -18,7 +18,7 @@ solver() = Model(optimizer_with_attributes(
 ))
 
 xmax = 1e3
-η = -0.5
+η = -0.1
 
 # Set #1
 sys = System{1}()
@@ -113,8 +113,8 @@ CPB.add_af!(mpf_BF, 2, SVector(1.0, 0.0), -1.0)
 x, r, loc = CPB.verify_BF(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, solver)
 
 @testset "verify BF: unsatisfied" begin
-    @test r ≈ -η/2
-    @test x[2] ≈ 1 + η/2
+    @test r ≈ -η
+    @test x[2] ≈ 1
     @test loc == 1
 end
 
@@ -136,8 +136,8 @@ CPB.add_af!(mpf_safe, 2, SVector(0.0, -1.0), -1.0)
 x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, solver)
 
 @testset "verify safe: unsafe" begin
-    @test r ≈ 1.5
-    @test x[1] ≈ 0.5
+    @test r ≈ xmax + 1
+    @test x[1] ≈ 1 + η
     @test loc == 1
 end
 

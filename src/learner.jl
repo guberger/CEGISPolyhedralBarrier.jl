@@ -92,15 +92,16 @@ function learn_lyapunov!(
     
     while !isempty(loc_stack)        
         iter += 1
-        do_print && println("Iter: ", iter)
+        do_print && print("Iter: ", iter)
         if iter > iter_max
-            println(string("Max iter exceeded: ", iter))
+            println(string("\nMax iter exceeded: ", iter))
             return MAX_ITER_REACHED, mpf, wit
         end
 
         callback_fcn(iter, mpf, wit)
 
         loc = pop!(loc_stack)
+        do_print && println(" - loc:", loc)
         empty!(mpf, loc)
         inside_points = wit.inside.points_list[loc]
         image_points = wit.image.points_list[loc]
@@ -111,7 +112,7 @@ function learn_lyapunov!(
                 _empty_points, image_points, point, 0, ϵ, ϵ, βmax, solver_sep
             )
             if r < 0
-                println(string("Satisfiability radius too small: ", r))
+                println(string("Radius too small (image): ", r))
                 return BARRIER_INFEASIBLE, mpf, wit
             end
             add_af!(mpf, loc, af)
@@ -119,7 +120,7 @@ function learn_lyapunov!(
                 inside_points, image_points, point, 0, 2*ϵ, 0, βmax, solver_sep
             )
             if r < 0
-                println(string("Satisfiability radius too small: ", r))
+                println(string("Radius too small (inside): ", r))
                 return BARRIER_INFEASIBLE, mpf, wit
             end
             add_af!(mpf, loc, af)
@@ -133,7 +134,7 @@ function learn_lyapunov!(
                 _empty_points, image_points, point, 0, ϵ, ϵ, βmax, solver_sep
             )
             if r < 0
-                println(string("|--- radius: ", r))
+                println(string("|--- radius (image): ", r))
                 _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
                 break
             end
@@ -142,7 +143,7 @@ function learn_lyapunov!(
                 inside_points, image_points, point, 0, 2*ϵ, 0, βmax, solver_sep
             )
             if r < 0
-                println(string("|--- radius: ", r))
+                println(string("|--- radius (inside): ", r))
                 _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
                 break
             end
@@ -174,11 +175,12 @@ function learn_lyapunov!(
             sys, lear.mpf_safe, lear.mpf_inv, mpf, xmax, -δ, solver_verif
         )
         if obj > 0
-            do_print && println("CE found: ", x, ", ", loc, ", ", obj)
+            do_print && print("CE found: ", x, ", ", loc, ", ", obj)
             if _is_outside(sys, lear.mpf_safe, loc, x, ϵ, tol_dom)
-                # @assert false
+                println(" (outside)")
                 add_point!(wit.outside, loc, x)
             else
+                println(" (unknown)")
                 add_point!(wit.unknown, loc, x)
             end
             push!(loc_stack, loc)
