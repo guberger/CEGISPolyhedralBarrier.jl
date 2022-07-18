@@ -101,22 +101,30 @@ for ax in ax_
     end
 end
 
-
 ## Learner
 lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.1, 1e-8)
-rec = CPB.TraceRecorder(lear)
-status, mpf, wit = CPB.learn_lyapunov!(lear, Inf, solver, solver, rec=rec)
+const _wits = CPB.Witness{2,1}[]
+function rec_wits(::Any, ::Any, wit)
+    inside_ = PointSet(copy.(wit.inside.points_list))
+    image_ = PointSet(copy.(wit.image.points_list))
+    outside_ = PointSet(copy.(wit.outside.points_list))
+    unknown_ = PointSet(copy.(wit.unknown.points_list))
+    push!(_wits, CPB.Witness(inside_, image_, outside_, unknown_))
+end
+status, mpf, wit = CPB.learn_lyapunov!(
+    lear, Inf, solver, solver, callback_fcn=rec_wits
+)
 
 display(status)
 
 for (loc, pf) in enumerate(mpf.pfs)
     plot_level!(
-        ax_[length(rec.wit_list) + 1], pf.afs, lims,
+        ax_[length(_wits) + 1], pf.afs, lims,
         fc="red", ec="red", fa=0.1, ew=0.5
     )
 end
 
-for (iter, wit) in enumerate(rec.wit_list)
+for (iter, wit) in enumerate(_wits)
     for (loc, points) in enumerate(wit.inside.points_list)
         @assert loc == 1
         for point in points

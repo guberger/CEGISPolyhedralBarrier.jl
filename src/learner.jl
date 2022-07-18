@@ -109,18 +109,10 @@ function learn_lyapunov!(
         # Sep outside
         for point in wit.outside.points_list[loc]
             af, r = compute_af(
-                _empty_points, image_points, point, 0, ϵ, ϵ, βmax, solver_sep
+                inside_points, image_points, point, ϵ, βmax, solver_sep
             )
             if r < 0
-                println(string("Radius too small (image): ", r))
-                return BARRIER_INFEASIBLE, mpf, wit
-            end
-            add_af!(mpf, loc, af)
-            af, r = compute_af(
-                inside_points, image_points, point, 0, 2*ϵ, 0, βmax, solver_sep
-            )
-            if r < 0
-                println(string("Radius too small (inside): ", r))
+                println(string("Radius too small: ", r))
                 return BARRIER_INFEASIBLE, mpf, wit
             end
             add_af!(mpf, loc, af)
@@ -131,19 +123,10 @@ function learn_lyapunov!(
         while !isempty(wit.unknown.points_list[loc])
             point = pop_point!(wit.unknown, loc)
             af, r = compute_af(
-                _empty_points, image_points, point, 0, ϵ, ϵ, βmax, solver_sep
+                inside_points, image_points, point, ϵ, βmax, solver_sep
             )
             if r < 0
-                println(string("|--- radius (image): ", r))
-                _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
-                break
-            end
-            add_af!(mpf, loc, af)
-            af, r = compute_af(
-                inside_points, image_points, point, 0, 2*ϵ, 0, βmax, solver_sep
-            )
-            if r < 0
-                println(string("|--- radius (inside): ", r))
+                println(string("|--- radius: ", r))
                 _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
                 break
             end

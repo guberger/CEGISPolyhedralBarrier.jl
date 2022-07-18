@@ -69,7 +69,7 @@ function rec_wits(::Any, ::Any, wit)
 end
 status, = CPB.learn_lyapunov!(lear, 1, solver, solver, callback_fcn=rec_wits)
 
-@testset "learn lyapunov #1: max iter" begin
+@testset "learn lyapunov: max iter" begin
     @test status == CPB.MAX_ITER_REACHED
     @test length(wits) == 1
 end
@@ -79,7 +79,7 @@ status, mpf, wit = CPB.learn_lyapunov!(
     lear, 3, solver, solver, callback_fcn=rec_wits
 )
 
-@testset "learn lyapunov #1: feasible, outside, inside" begin
+@testset "learn lyapunov: feasible" begin
     @test status == CPB.BARRIER_FOUND
     @test length(wits) == 2
     #1
@@ -111,32 +111,7 @@ status, mpf, wit = CPB.learn_lyapunov!(
     lear, 3, solver, solver, callback_fcn=rec_wits
 )
 
-@testset "learn lyapunov #1: infeasible, outside, inside" begin
-    @test status == CPB.BARRIER_INFEASIBLE
-    @test length(wits) == 2
-    #1
-    @test wits[1].inside.points_list[1] ≈ [[1]]
-    @test wits[1].image.points_list[1] ≈ [[3.5]]
-    @test isempty(wits[1].outside.points_list[1])
-    @test isempty(wits[1].unknown.points_list[1])
-    #2
-    @test wits[2].inside.points_list[1] ≈ [[1]]
-    @test wits[2].image.points_list[1] ≈ [[3.5]]
-    @test wits[2].outside.points_list[1] ≈ [[3]]
-    @test isempty(wits[2].unknown.points_list[1])
-end
-
-ϵ = 0.5 + 1e-4
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, ϵ, 1e-3)
-CPB.set_param!(lear, :xmax, 1e2)
-CPB.set_param!(lear, :tol_dom, 1e-6)
-
-wits = CPB.Witness{1,1}[]
-status, mpf, wit = CPB.learn_lyapunov!(
-    lear, 3, solver, solver, callback_fcn=rec_wits
-)
-
-@testset "learn lyapunov #1: infeasible, outside, inside" begin
+@testset "learn lyapunov: rad too small" begin
     @test status == CPB.BARRIER_INFEASIBLE
     @test length(wits) == 2
     #1
@@ -194,7 +169,7 @@ status, mpf, wit = CPB.learn_lyapunov!(
     lear, 4, solver, solver, callback_fcn=rec_wits
 )
 
-@testset "learn lyapunov #2: feasible, outside, inside" begin
+@testset "learn lyapunov: unknown -> outside" begin
     @test status == CPB.BARRIER_INFEASIBLE
     @test length(wits) == 4
     #1
@@ -218,7 +193,7 @@ status, mpf, wit = CPB.learn_lyapunov!(
     lear, 4, solver, solver, callback_fcn=rec_wits
 )
 
-@testset "learn lyapunov #2: feasible, outside, inside" begin
+@testset "learn lyapunov: unknown! gets excluded" begin
     @test status == CPB.BARRIER_FOUND
     @test length(wits) == 4
     #1
@@ -242,37 +217,12 @@ status, mpf, wit = CPB.learn_lyapunov!(
     lear, 6, solver, solver, callback_fcn=rec_wits
 )
 
-@testset "learn lyapunov #2: feasible, outside, inside" begin
+@testset "learn lyapunov: unknown! gets included" begin
     @test status == CPB.BARRIER_FOUND
     @test length(wits) == 6
     #1
     @test wits[6].inside.points_list[1] ≈ [[1]]
     @test wits[6].inside.points_list[2] ≈ [[0], [1]]
-    @test wits[6].image.points_list[1] ≈ [[2.5]]
-    @test wits[6].image.points_list[2] ≈ [[0.9]]
-    @test wits[6].outside.points_list[1] ≈ [[3]]
-    @test isempty(wits[6].outside.points_list[2])
-    @test isempty(wits[6].unknown.points_list[1])
-    @test isempty(wits[6].unknown.points_list[2])
-end
-
-CPB.add_point!(iset, 2, SVector(3.0))
-ϵ = 0.01
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, ϵ, 1e-3)
-CPB.set_param!(lear, :xmax, 1e2)
-CPB.set_param!(lear, :tol_dom, 1e-6)
-
-wits = CPB.Witness{1,2}[]
-status, mpf, wit = CPB.learn_lyapunov!(
-    lear, 6, solver, solver, callback_fcn=rec_wits
-)
-
-@testset "learn lyapunov #2: feasible, outside, inside" begin
-    @test status == CPB.BARRIER_FOUND
-    @test length(wits) == 6
-    #1
-    @test wits[6].inside.points_list[1] ≈ [[1]]
-    @test wits[6].inside.points_list[2] ≈ [[0], [3], [1]]
     @test wits[6].image.points_list[1] ≈ [[2.5]]
     @test wits[6].image.points_list[2] ≈ [[0.9]]
     @test wits[6].outside.points_list[1] ≈ [[3]]
