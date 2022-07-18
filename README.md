@@ -12,4 +12,6 @@ A toolbox for the learning control Barrier functions from counterexamples and de
 [codecov-img]: http://codecov.io/github/guberger/CEGISPolyhedralBarrier_adaptive.jl/coverage.svg?branch=main
 [codecov-url]: http://codecov.io/github/guberger/CEGISPolyhedralBarrier_adaptive.jl?branch=main
 
+![GUI](https://github.com/guberger/CEGISPolyhedralBarrier_adaptive.jl/blob/main/animation_rotating.gif)
+
 ## References
