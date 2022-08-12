@@ -59,8 +59,8 @@ ax_ = fig.subplots(
     subplot_kw=Dict("aspect"=>"equal")
 )
 
-xlims = (-4.2, 4.2)
-ylims = (-4.2, 4.2)
+xlims = (-2.2, 2.2)
+ylims = (-2.2, 2.2)
 lims = [(-10, -10), (10, 10)]
 
 for ax in ax_
@@ -71,18 +71,18 @@ for ax in ax_
 end
 
 for (loc, pf) in enumerate(mpf_safe.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="green", fa=0.1, ec="green")
+    plot_level!(ax_[loc], pf.afs, lims, fc="none", fa=0, ec="red", ew=1.5)
 end
 
 for (loc, pf) in enumerate(mpf_inv.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="none", ec="yellow")
+    plot_level!(ax_[loc], pf.afs, lims, fc="none", ec="blue")
 end
 
-for piece in sys.pieces
-    plot_level!(
-        ax_[piece.loc1], piece.pf_dom.afs, lims, fc="blue", fa=0.1, ec="blue"
-    )
-end
+# for piece in sys.pieces
+#     plot_level!(
+#         ax_[piece.loc1], piece.pf_dom.afs, lims, fc="blue", fa=0.1, ec="blue"
+#     )
+# end
 
 ## Learner
 lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-1, 1e-8)
@@ -91,7 +91,7 @@ status, mpf, wit = CPB.learn_lyapunov!(lear, Inf, solver, solver)
 display(status)
 
 for (loc, pf) in enumerate(mpf.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="red", ec="red", fa=0.1, ew=0.5)
+    plot_level!(ax_[loc], pf.afs, lims, fc="gold", ec="gold", fa=0.5, ew=2.5)
 end
 
 for (loc, points) in enumerate(wit.inside.points_list)
