@@ -13,19 +13,19 @@ struct Learner{N,M}
     sys::System{N}
     mpf_safe::MultiPolyFunc{N,M}
     mpf_inv::MultiPolyFunc{N,M}
-    iset::PointSet{N,M}
+    mset_init::MultiSet{N,M}
     ϵ::Float64
     δ::Float64
     params::Dict{Symbol,Float64}
 end
 
-function Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ)
+function Learner(sys, mpf_safe, mpf_inv, mset_init, ϵ, δ)
     params = Dict([
         :tol_dom => 1e-8,
         :βmax => 1e3,
         :xmax => 1e3
     ])
-    return Learner(sys, mpf_safe, mpf_inv, isetϵ, ϵ, δ, params)
+    return Learner(sys, mpf_safe, mpf_inv, mset_init, ϵ, δ, params)
 end
 
 _setsafe!(D, k, v) = (@assert haskey(D, k); D[k] = v)
@@ -33,13 +33,13 @@ set_param!(lear::Learner, s::Symbol, v) = _setsafe!(lear.params, s, v)
 
 # Witness
 struct Witness{N,M}
-    inside::PointSet{N,M}
-    image::PointSet{N,M}
-    outside::PointSet{N,M}
-    unknown::PointSet{N,M}
+    inside::MultiSet{N,M}
+    image::MultiSet{N,M}
+    outside::MultiSet{N,M}
+    unknown::MultiSet{N,M}
 end
 
-Witness{N,M}() where {N,M} = Witness(ntuple(k -> PointSet{N,M}(), Val(4))...)
+Witness{N,M}() where {N,M} = Witness(ntuple(k -> MultiSet{N,M}(), Val(4))...)
 
 # Add new point to invariant set
 function _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
@@ -77,10 +77,10 @@ function learn_lyapunov!(
     tol_dom = lear.params[:tol_dom]
 
     wit = Witness{N,M}()
-    temp_unknown_set = PointSet{N,M}()
+    temp_unknown_mset = MultiSet{N,M}()
     loc_stack = Int[]
 
-    for (loc, points) in enumerate(lear.iset.points_list)
+    for (loc, points) in enumerate(lear.mset_init.sets)
         for point in points
             _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
         end
@@ -88,7 +88,7 @@ function learn_lyapunov!(
 
     mpf = MultiPolyFunc{N,M}()
     iter = 0
-    _empty_points = Point{N}[]
+    # _empty_points = Point{N}[]
     
     while !isempty(loc_stack)        
         iter += 1
@@ -103,11 +103,11 @@ function learn_lyapunov!(
         loc = pop!(loc_stack)
         do_print && println(" - loc:", loc)
         empty!(mpf, loc)
-        inside_points = wit.inside.points_list[loc]
-        image_points = wit.image.points_list[loc]
+        inside_points = wit.inside.sets[loc]
+        image_points = wit.image.sets[loc]
 
         # Sep outside
-        for point in wit.outside.points_list[loc]
+        for point in wit.outside.sets[loc]
             af, r = compute_af(
                 inside_points, image_points, point, ϵ, βmax, solver_sep
             )
@@ -118,9 +118,9 @@ function learn_lyapunov!(
             add_af!(mpf, loc, af)
         end
 
-        empty!(temp_unknown_set, loc)
+        empty!(temp_unknown_mset, loc)
 
-        while !isempty(wit.unknown.points_list[loc])
+        while !isempty(wit.unknown.sets[loc])
             point = pop_point!(wit.unknown, loc)
             af, r = compute_af(
                 inside_points, image_points, point, ϵ, βmax, solver_sep
@@ -131,10 +131,10 @@ function learn_lyapunov!(
                 break
             end
             add_af!(mpf, loc, af)
-            add_point!(temp_unknown_set, loc, point)
+            add_point!(temp_unknown_mset, loc, point)
         end
 
-        for point in temp_unknown_set.points_list[loc]
+        for point in temp_unknown_mset.sets[loc]
             add_point!(wit.unknown, loc, point)
         end
 

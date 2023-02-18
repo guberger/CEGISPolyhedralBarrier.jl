@@ -50,14 +50,14 @@ System{N}() where N = System(Piece{N}[])
 add_piece!(sys::System, piece::Piece) = push!(sys.pieces, piece)
 add_piece!(sys::System, piece_...) = add_piece!(sys, Piece(piece_...))
 
-struct PointSet{N,M}
-    points_list::NTuple{M,Vector{Point{N}}}
+struct MultiSet{N,M}
+    sets::NTuple{M,Vector{Point{N}}}
 end
 
-PointSet{N,M}() where {N,M} = PointSet(ntuple(loc -> Point{N}[], Val(M)))
-add_point!(S::PointSet, loc::Int, point) = push!(S.points_list[loc], point)
-pop_point!(S::PointSet, loc::Int) = pop!(S.points_list[loc])
-Base.empty!(S::PointSet, loc::Int) = empty!(S.points_list[loc])
+MultiSet{N,M}() where {N,M} = MultiSet(ntuple(loc -> Point{N}[], Val(M)))
+add_point!(S::MultiSet, loc::Int, point) = push!(S.sets[loc], point)
+pop_point!(S::MultiSet, loc::Int) = pop!(S.sets[loc])
+Base.empty!(S::MultiSet, loc::Int) = empty!(S.sets[loc])
 
 include("separator.jl")
 include("verifier.jl")

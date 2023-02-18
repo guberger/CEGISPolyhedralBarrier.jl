@@ -9,7 +9,7 @@ using PyPlot
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
 System = CPB.System
-PointSet = CPB.PointSet
+MultiSet = CPB.MultiSet
 PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
 
@@ -42,11 +42,11 @@ A = @SMatrix [1.0 0.0; 0.0 1.0]
 b = @SVector [0.0, 0.5]
 CPB.add_piece!(sys, pf_dom, 2, A, b, 1)
 
-iset = PointSet{2,2}()
-CPB.add_point!(iset, 1, SVector(-1.0, -1.0))
-CPB.add_point!(iset, 1, SVector(-1.0, 1.0))
-CPB.add_point!(iset, 1, SVector(1.0, -1.0))
-CPB.add_point!(iset, 1, SVector(1.0, 1.0))
+mset_init = MultiSet{2,2}()
+CPB.add_point!(mset_init, 1, SVector(-1.0, -1.0))
+CPB.add_point!(mset_init, 1, SVector(-1.0, 1.0))
+CPB.add_point!(mset_init, 1, SVector(1.0, -1.0))
+CPB.add_point!(mset_init, 1, SVector(1.0, 1.0))
 
 mpf_safe = MultiPolyFunc{2,2}()
 CPB.add_af!(mpf_safe, 1, SVector(0.0, 1.0), -1.5)
@@ -85,7 +85,7 @@ end
 # end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 1e-1, 1e-8)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, mset_init, 1e-1, 1e-8)
 status, mpf, wit = CPB.learn_lyapunov!(lear, Inf, solver, solver)
 
 display(status)
@@ -94,25 +94,25 @@ for (loc, pf) in enumerate(mpf.pfs)
     plot_level!(ax_[loc], pf.afs, lims, fc="gold", ec="gold", fa=0.5, ew=2.5)
 end
 
-for (loc, points) in enumerate(wit.inside.points_list)
+for (loc, points) in enumerate(wit.inside.sets)
     for point in points
         plot_point!(ax_[loc], point, mc="blue")
     end
 end
 
-for (loc, points) in enumerate(wit.image.points_list)
+for (loc, points) in enumerate(wit.image.sets)
     for point in points
         plot_point!(ax_[loc], point, mc="purple")
     end
 end
 
-for (loc, points) in enumerate(wit.outside.points_list)
+for (loc, points) in enumerate(wit.outside.sets)
     for point in points
         plot_point!(ax_[loc], point, mc="red")
     end
 end
 
-for (loc, points) in enumerate(wit.unknown.points_list)
+for (loc, points) in enumerate(wit.unknown.sets)
     for point in points
         plot_point!(ax_[loc], point, mc="orange")
     end

@@ -9,7 +9,7 @@ using PyPlot
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
 System = CPB.System
-PointSet = CPB.PointSet
+MultiSet = CPB.MultiSet
 PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
 
@@ -62,11 +62,11 @@ CPB.add_af!(mpf_safe, 1, SVector(-1.0, 1.0), -1.8)
 CPB.add_af!(mpf_safe, 1, SVector(1.0, -1.0), -1.8)
 CPB.add_af!(mpf_safe, 1, SVector(1.0, 1.0), -1.8)
 
-iset = PointSet{2,1}()
-CPB.add_point!(iset, 1, SVector(-1.0, 0.0))
-CPB.add_point!(iset, 1, SVector(1.0, 0.0))
-CPB.add_point!(iset, 1, SVector(0.0, -1.0))
-CPB.add_point!(iset, 1, SVector(0.0, 1.0))
+mset_init = MultiSet{2,1}()
+CPB.add_point!(mset_init, 1, SVector(-1.0, 0.0))
+CPB.add_point!(mset_init, 1, SVector(1.0, 0.0))
+CPB.add_point!(mset_init, 1, SVector(0.0, -1.0))
+CPB.add_point!(mset_init, 1, SVector(0.0, 1.0))
 
 # Illustration
 fig = figure(0, figsize=(15, 8))
@@ -102,13 +102,13 @@ for ax in ax_
 end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, iset, 0.1, 1e-8)
+lear = CPB.Learner(sys, mpf_safe, mpf_inv, mset_init, 0.1, 1e-8)
 const _wits = CPB.Witness{2,1}[]
 function rec_wits(::Any, ::Any, wit)
-    inside_ = PointSet(copy.(wit.inside.points_list))
-    image_ = PointSet(copy.(wit.image.points_list))
-    outside_ = PointSet(copy.(wit.outside.points_list))
-    unknown_ = PointSet(copy.(wit.unknown.points_list))
+    inside_ = MultiSet(copy.(wit.inside.sets))
+    image_ = MultiSet(copy.(wit.image.sets))
+    outside_ = MultiSet(copy.(wit.outside.sets))
+    unknown_ = MultiSet(copy.(wit.unknown.sets))
     push!(_wits, CPB.Witness(inside_, image_, outside_, unknown_))
 end
 status, mpf, wit = CPB.learn_lyapunov!(
@@ -125,28 +125,28 @@ for (loc, pf) in enumerate(mpf.pfs)
 end
 
 for (iter, wit) in enumerate(_wits)
-    for (loc, points) in enumerate(wit.inside.points_list)
+    for (loc, points) in enumerate(wit.inside.sets)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="blue", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.image.points_list)
+    for (loc, points) in enumerate(wit.image.sets)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="purple", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.outside.points_list)
+    for (loc, points) in enumerate(wit.outside.sets)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="red", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.unknown.points_list)
+    for (loc, points) in enumerate(wit.unknown.sets)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="orange", ms=5)
