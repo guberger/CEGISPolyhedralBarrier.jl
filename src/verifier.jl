@@ -1,20 +1,25 @@
 abstract type VerifierProblem end
 
 function _optim_verif(
-        prob::VerifierProblem, afs_dom, afs_safe, afs_inv, afs_BF,
-        af_target, A::SMatrix{N,N}, b::SVector{N}, xmax, solver
-    ) where N
+        prob::VerifierProblem,
+        afs_dom, afs_safe, afs_inv, afs_BF, af_target,
+        A, b, xmax, N, solver
+    )
     model = solver()
-    x = SVector(ntuple(
-        k -> @variable(model, lower_bound=-xmax, upper_bound=xmax), Val(N)
-    ))
+    x = @variable(model, [1:N], lower_bound=-xmax, upper_bound=xmax)
     r = @variable(model, upper_bound=10*xmax)
 
-    for af in Iterators.flatten((afs_dom, afs_inv))
+    for af in afs_dom
+        _add_constr_in_domain!(prob, model, af, x)
+    end
+    for af in afs_inv
         _add_constr_in_domain!(prob, model, af, x)
     end
 
-    for af in Iterators.flatten((afs_safe, afs_BF))
+    for af in afs_safe
+        _add_constr_in_barrier!(prob, model, af, x, r)
+    end
+    for af in afs_BF
         _add_constr_in_barrier!(prob, model, af, x, r)
     end
 
@@ -24,7 +29,7 @@ function _optim_verif(
 
     optimize!(model)
 
-    xopt = has_values(model) ? value.(x) : SVector(ntuple(k -> NaN, Val(N)))
+    xopt = has_values(model) ? value.(x) : fill(NaN, N)
     ropt = has_values(model) ? objective_value(model) : -Inf
     ps, ts = primal_status(model), termination_status(model)
     flag = ps == FEASIBLE_POINT && ts == OPTIMAL
@@ -34,11 +39,11 @@ function _optim_verif(
 end
 
 function _verify(
-        prob::VerifierProblem, sys::System{N},
-        mpf_safe, mpf_inv, mpf_BF,
-        mpf_target, xmax, solver
-    ) where N
-    xopt::SVector{N,Float64} = SVector(ntuple(k -> NaN, Val(N)))
+        prob::VerifierProblem,
+        mpf_safe, mpf_inv, mpf_BF, mpf_target,
+        sys, xmax, N, solver
+    )
+    xopt::Vector{Float64} = fill(NaN, N)
     ropt::Float64 = -Inf
     locopt::Int = 0
     for piece in sys.pieces
@@ -50,7 +55,7 @@ function _verify(
         for af_target in mpf_target.pfs[piece.loc2].afs
             x, r, flag = _optim_verif(
                 prob, afs_dom, afs_safe, afs_inv, afs_BF,
-                af_target, A, b, xmax, solver
+                af_target, A, b, xmax, N, solver
             )
             if flag && r > ropt
                 xopt = x
@@ -62,16 +67,16 @@ function _verify(
     return xopt, ropt, locopt
 end
 
-struct VerifierSafe <: VerifierProblem
-    η::Float64
-end
-
-function _add_constr_in_domain!(::VerifierSafe, model, af, x)
+function _add_constr_in_domain!(::VerifierProblem, model, af, x)
     @constraint(model, _eval(af, x) ≤ 0)
 end
 
-function _add_constr_in_barrier!(::VerifierSafe, model, af, x, r)
+function _add_constr_in_barrier!(::VerifierProblem, model, af, x, r)
     @constraint(model, _eval(af, x) + norm(af.a, Inf)*r ≤ 0)
+end
+
+struct VerifierSafe{ET} <: VerifierProblem
+    η::ET
 end
 
 function _add_constr_out_target!(prob::VerifierSafe, model, af, x, ::Any)
@@ -80,24 +85,16 @@ end
 
 function verify_safe(
         sys::System, mpf_safe::MultiPolyFunc, mpf_inv::MultiPolyFunc,
-        mpf_BF::MultiPolyFunc, xmax::Float64, η, solver
+        mpf_BF::MultiPolyFunc, xmax, η, N, solver
     )
     prob = VerifierSafe(η)
     return _verify(
-        prob, sys, mpf_safe, mpf_inv, mpf_BF, mpf_safe, xmax, solver
+        prob, mpf_safe, mpf_inv, mpf_BF, mpf_safe, sys, xmax, N, solver
     )
 end
 
-struct VerifierBF <: VerifierProblem
-    η::Float64
-end
-
-function _add_constr_in_domain!(::VerifierBF, model, af, x)
-    @constraint(model, _eval(af, x) ≤ 0)
-end
-
-function _add_constr_in_barrier!(::VerifierBF, model, af, x, r)
-    @constraint(model, _eval(af, x) + norm(af.a, Inf)*r ≤ 0)
+struct VerifierBF{ET} <: VerifierProblem
+    η::ET
 end
 
 function _add_constr_out_target!(prob::VerifierBF, model, af, x, r)
@@ -106,10 +103,10 @@ end
 
 function verify_BF(
         sys::System, mpf_safe::MultiPolyFunc, mpf_inv::MultiPolyFunc,
-        mpf_BF::MultiPolyFunc, xmax::Float64, η, solver
+        mpf_BF::MultiPolyFunc, xmax, η, N, solver
     )
     prob = VerifierBF(η)
     return _verify(
-        prob, sys, mpf_safe, mpf_inv, mpf_BF, mpf_BF, xmax, solver
+        prob, mpf_safe, mpf_inv, mpf_BF, mpf_BF, sys, xmax, N, solver
     )
 end

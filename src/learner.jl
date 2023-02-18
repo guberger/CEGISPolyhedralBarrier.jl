@@ -7,49 +7,28 @@
     MAX_ITER_REACHED = 3
 end
 
-## Learner
+# :tol_dom=1e-8,
+# :βmax=1e3,
+# :xmax=1e3
 
-struct Learner{N,M}
-    sys::System{N}
-    mpf_safe::MultiPolyFunc{N,M}
-    mpf_inv::MultiPolyFunc{N,M}
-    mset_init::MultiSet{N,M}
-    ϵ::Float64
-    δ::Float64
-    params::Dict{Symbol,Float64}
+struct Witness
+    mlist_inside::Vector{Vector{Vector{Float64}}}
+    mlist_image::Vector{Vector{Vector{Float64}}}
+    mlist_unknown::Vector{Vector{Vector{Float64}}}
+    mlist_outside::Vector{Vector{Vector{Float64}}}
 end
-
-function Learner(sys, mpf_safe, mpf_inv, mset_init, ϵ, δ)
-    params = Dict([
-        :tol_dom => 1e-8,
-        :βmax => 1e3,
-        :xmax => 1e3
-    ])
-    return Learner(sys, mpf_safe, mpf_inv, mset_init, ϵ, δ, params)
-end
-
-_setsafe!(D, k, v) = (@assert haskey(D, k); D[k] = v)
-set_param!(lear::Learner, s::Symbol, v) = _setsafe!(lear.params, s, v)
-
-# Witness
-struct Witness{N,M}
-    inside::MultiSet{N,M}
-    image::MultiSet{N,M}
-    outside::MultiSet{N,M}
-    unknown::MultiSet{N,M}
-end
-
-Witness{N,M}() where {N,M} = Witness(ntuple(k -> MultiSet{N,M}(), Val(4))...)
 
 # Add new point to invariant set
-function _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
-    add_point!(wit.inside, loc, point)
+function _add_safe_point!(
+        mlist_inside, mlist_image, loc_stack, sys, loc, point, tol_dom
+    )
+    push!(mlist_inside[loc], point)
     loc ∉ loc_stack && push!(loc_stack, loc)
     for piece in sys.pieces
         loc != piece.loc1 && continue
         !_prox(piece.pf_dom, point, tol_dom) && continue
         loc2 = piece.loc2
-        add_point!(wit.image, loc2, piece.A*point + piece.b)
+        push!(mlist_image[loc2], piece.A*point + piece.b)
         loc2 ∉ loc_stack && push!(loc_stack, loc2)
     end
 end
@@ -69,26 +48,42 @@ end
 
 ## Learn Barrier
 function learn_lyapunov!(
-        lear::Learner{N,M}, iter_max, solver_sep, solver_verif;
+        sys::System,
+        mpf_safe::MultiPolyFunc, mpf_inv::MultiPolyFunc,
+        mlist_init::AbstractVector{<:AbstractVector{<:AbstractVector}},
+        ϵ, δ, iter_max, M, N, solver_sep, solver_verif;
+        tol_dom=1e-8, βmax=1e3, xmax=1e3,
         do_print=true, callback_fcn=(args...) -> nothing
-    ) where {N,M}
-    sys, ϵ, δ = lear.sys, lear.ϵ, lear.δ
-    βmax, xmax = lear.params[:βmax], lear.params[:xmax]
-    tol_dom = lear.params[:tol_dom]
+    )
+    _mpf_safe = MultiPolyFunc([
+        PolyFunc([
+            AffForm(Vector{Float64}(af.a), Float64(af.β))
+            for af in mpf_safe.pfs[loc].afs
+        ]) for loc = 1:M
+    ])
+    _mpf_inv = MultiPolyFunc([
+        PolyFunc([
+            AffForm(Vector{Float64}(af.a), Float64(af.β))
+            for af in mpf_inv.pfs[loc].afs
+        ]) for loc = 1:M
+    ])
 
-    wit = Witness{N,M}()
-    temp_unknown_mset = MultiSet{N,M}()
+    wit = Witness(ntuple(i -> [Vector{Float64}[] for loc = 1:M], Val(4))...)
     loc_stack = Int[]
-
-    for (loc, points) in enumerate(lear.mset_init.sets)
-        for point in points
-            _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
+    for loc = 1:M
+        for point in mlist_init[loc]
+            _add_safe_point!(
+                wit.mlist_inside, wit.mlist_image, loc_stack,
+                sys, loc, point, tol_dom
+            )
         end
     end
 
-    mpf = MultiPolyFunc{N,M}()
+    mpf = MultiPolyFunc([
+        PolyFunc(AffForm{Vector{Float64},Float64}[]) for loc = 1:M
+    ])
     iter = 0
-    # _empty_points = Point{N}[]
+    list_unknown_temp = Vector{Float64}[]
     
     while !isempty(loc_stack)        
         iter += 1
@@ -103,39 +98,42 @@ function learn_lyapunov!(
         loc = pop!(loc_stack)
         do_print && println(" - loc:", loc)
         empty!(mpf, loc)
-        inside_points = wit.inside.sets[loc]
-        image_points = wit.image.sets[loc]
+        points_inside = wit.mlist_inside[loc]
+        points_image = wit.mlist_image[loc]
 
         # Sep outside
-        for point in wit.outside.sets[loc]
+        for point in wit.mlist_outside[loc]
             af, r = compute_af(
-                inside_points, image_points, point, ϵ, βmax, solver_sep
+                points_inside, points_image, point, ϵ, βmax, N, solver_sep
             )
             if r < 0
                 println(string("Radius too small: ", r))
                 return BARRIER_INFEASIBLE, mpf, wit
             end
-            add_af!(mpf, loc, af)
+            push!(mpf.pfs[loc].afs, af)
         end
 
-        empty!(temp_unknown_mset, loc)
+        empty!(list_unknown_temp)
 
-        while !isempty(wit.unknown.sets[loc])
-            point = pop_point!(wit.unknown, loc)
+        while !isempty(wit.mlist_unknown[loc])
+            point = pop!(wit.mlist_unknown[loc])
             af, r = compute_af(
-                inside_points, image_points, point, ϵ, βmax, solver_sep
+                points_inside, points_image, point, ϵ, βmax, N, solver_sep
             )
             if r < 0
                 println(string("|--- radius: ", r))
-                _add_safe_point!(wit, loc_stack, sys, loc, point, tol_dom)
+                _add_safe_point!(
+                    wit.mlist_inside, wit.mlist_image, loc_stack,
+                    sys, loc, point, tol_dom
+                )
                 break
             end
-            add_af!(mpf, loc, af)
-            add_point!(temp_unknown_mset, loc, point)
+            push!(mpf.pfs[loc].afs, af)
+            push!(list_unknown_temp, point)
         end
 
-        for point in temp_unknown_mset.sets[loc]
-            add_point!(wit.unknown, loc, point)
+        for point in list_unknown_temp
+            push!(wit.mlist_unknown[loc], point)
         end
 
         !isempty(loc_stack) && continue
@@ -143,11 +141,11 @@ function learn_lyapunov!(
         # Verifier
         do_print && print("|--- Verify safe... ")
         x, obj, loc = verify_safe(
-            sys, lear.mpf_safe, lear.mpf_inv, mpf, xmax, -δ, solver_verif
+            sys, _mpf_safe, _mpf_inv, mpf, xmax, -δ, N, solver_verif
         )
         if obj > 0
             do_print && println("CE found: ", x, ", ", loc, ", ", obj)
-            add_point!(wit.outside, loc, x)
+            push!(wit.mlist_outside[loc], x)
             push!(loc_stack, loc)
             continue
         else
@@ -155,16 +153,16 @@ function learn_lyapunov!(
         end
         do_print && print("|--- Verify BF... ")
         x, obj, loc = verify_BF(
-            sys, lear.mpf_safe, lear.mpf_inv, mpf, xmax, -δ, solver_verif
+            sys, _mpf_safe, _mpf_inv, mpf, xmax, -δ, N, solver_verif
         )
         if obj > 0
             do_print && print("CE found: ", x, ", ", loc, ", ", obj)
-            if _is_outside(sys, lear.mpf_safe, loc, x, ϵ, tol_dom)
+            if _is_outside(sys, _mpf_safe, loc, x, ϵ, tol_dom)
                 println(" (outside)")
-                add_point!(wit.outside, loc, x)
+                push!(wit.mlist_outside[loc], x)
             else
                 println(" (unknown)")
-                add_point!(wit.unknown, loc, x)
+                push!(wit.mlist_unknown[loc], x)
             end
             push!(loc_stack, loc)
             continue

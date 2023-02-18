@@ -1,15 +1,13 @@
 using LinearAlgebra
-using StaticArrays
 using JuMP
 using HiGHS
 using Test
-@static if isdefined(Main, :TestLocal)
+@static if isdefined(Main, :TestLocal) && TestLocal
     include("../src/CEGISPolyhedralBarrier.jl")
 else
     using CEGISPolyhedralBarrier
 end
 CPB = CEGISPolyhedralBarrier
-Point = CPB.Point
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
@@ -17,13 +15,14 @@ solver() = Model(optimizer_with_attributes(
 
 η = 1e-1
 βmax = 100.0
+N = 2
 
 ## Empty
-inside_points = Point{2}[]
-image_points = Point{2}[]
-outside_point = SVector(0.0, 0.0)
+points_inside = Vector{Float64}[]
+points_image = Vector{Float64}[]
+point_outside = [0.0, 0.0]
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep empty" begin
@@ -32,11 +31,11 @@ af, r = CPB.compute_af(
 end
 
 ## Set #1
-inside_points = [SVector(0.0, 0.0)]
-image_points = [SVector(0.0, 0.0)]
-outside_point = SVector(0.5, 0.0)
+points_inside = [[0.0, 0.0]]
+points_image = [[0.0, 0.0]]
+point_outside = [0.5, 0.0]
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep #1.1" begin
@@ -44,11 +43,11 @@ af, r = CPB.compute_af(
     @test norm(af.a, Inf) ≈ 1
 end
 
-inside_points = [SVector(0.0, 0.0)]
-image_points = Point{2}[]
-outside_point = SVector(0.5, 0.0)
+points_inside = [[0.0, 0.0]]
+points_image = Vector{Float64}[]
+point_outside = [0.5, 0.0]
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep #1.2" begin
@@ -57,11 +56,11 @@ af, r = CPB.compute_af(
 end
 
 ## Set #2
-inside_points = [SVector(0.0, 0.0), SVector(4.0, 0.0)]
-image_points = [SVector(0.0, 0.0), SVector(4.0, 0.0)]
-outside_point = SVector(8.0, 0.0)
+points_inside = [[0.0, 0.0], [4.0, 0.0]]
+points_image = [[0.0, 0.0], [4.0, 0.0]]
+point_outside = [8.0, 0.0]
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep #2.1" begin
@@ -69,11 +68,11 @@ af, r = CPB.compute_af(
     @test norm(af.a, Inf) ≈ 1
 end
 
-inside_points = [SVector(4.0, 0.0)]
-image_points = [SVector(0.0, 0.0)]
-outside_point = SVector(8.0, 0.0)
+points_inside = [[4.0, 0.0]]
+points_image = [[0.0, 0.0]]
+point_outside = [8.0, 0.0]
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep #2.2" begin
@@ -84,7 +83,7 @@ end
 ## Set #3
 βmax = 1.0
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep #3" begin
@@ -95,11 +94,11 @@ end
 
 ## Set #4
 βmax = 100.0
-inside_points = [SVector(1.0, -1.0)]
-image_points = [SVector(1.0, 1.0)]
-outside_point = SVector(2.0, 0.0)
+points_inside = [[1.0, -1.0]]
+points_image = [[1.0, 1.0]]
+point_outside = [2.0, 0.0]
 af, r = CPB.compute_af(
-    inside_points, image_points, outside_point, η, βmax, solver
+    points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
 @testset "compute sep #4" begin
