@@ -121,11 +121,14 @@ function learn_lyapunov!(
                 points_inside, points_image, point, ϵ, βmax, N, solver_sep
             )
             if r < 0
-                println(string("|--- radius: ", r))
+                do_print && println(string("|--- radius: ", r))
                 _add_safe_point!(
                     wit.mlist_inside, wit.mlist_image, loc_stack,
                     sys, loc, point, tol_dom
                 )
+                # uncomment two lines below for approach of the paper
+                # empty!(wit.mlist_unknown[loc])
+                # empty!(list_unknown_temp)
                 break
             end
             push!(mpf.pfs[loc].afs, af)
@@ -158,10 +161,10 @@ function learn_lyapunov!(
         if obj > 0
             do_print && print("CE found: ", x, ", ", loc, ", ", obj)
             if _is_outside(sys, _mpf_safe, loc, x, ϵ, tol_dom)
-                println(" (outside)")
+                do_print && println(" (outside)")
                 push!(wit.mlist_outside[loc], x)
             else
-                println(" (unknown)")
+                do_print && println(" (unknown)")
                 push!(wit.mlist_unknown[loc], x)
             end
             push!(loc_stack, loc)

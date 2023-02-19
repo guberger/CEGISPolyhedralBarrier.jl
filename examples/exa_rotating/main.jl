@@ -1,17 +1,18 @@
 module ExampleRotating
 
 using LinearAlgebra
-using StaticArrays
 using JuMP
 using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
-System = CPB.System
-MultiSet = CPB.MultiSet
+AffForm = CPB.AffForm
 PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
+Piece = CPB.Piece
+System = CPB.System
+Witness = CPB.Witness
 
 include("../utils/plotting2D.jl")
 
@@ -20,55 +21,64 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-mpf_safe = MultiPolyFunc{2,2}()
-for loc = 1:2
-    CPB.add_af!(mpf_safe, loc, SVector(-1.0, 0.0), -2.0)
-    CPB.add_af!(mpf_safe, loc, SVector(1.0, 0.0), -2.0)
-    CPB.add_af!(mpf_safe, loc, SVector(0.0, -1.0), -2.0)
-    CPB.add_af!(mpf_safe, loc, SVector(0.0, 1.0), -2.0)
-end
+N = 2
+M = 2
 
-sys = System{2}()
+mpf_safe = MultiPolyFunc([PolyFunc([
+    AffForm([-1.0, 0.0], -2.0),
+    AffForm([1.0, 0.0], -2.0),
+    AffForm([0.0, -1.0], -2.0),
+    AffForm([0.0, 1.0], -2.0)
+]) for loc = 1:2])
+
 θ = π/5
 α = 0.9
 
-pf_dom = PolyFunc{2}()
-A = α*(@SMatrix [cos(θ) -sin(θ); sin(θ) cos(θ)])
-b = @SVector [0.0, 0.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 2)
+pf_dom = PolyFunc(AffForm{Vector{Float64},Float64}[])
+A = α*[cos(θ) -sin(θ); sin(θ) cos(θ)]
+b = [0.0, 0.0]
+piece1 = Piece(pf_dom, 1, A, b, 2)
+pf_dom = PolyFunc(AffForm{Vector{Float64},Float64}[])
+A = α*[cos(θ) -sin(θ); sin(θ) cos(θ)]
+b = [0.0, 0.0]
+piece2 = Piece(pf_dom, 2, A, b, 1)
+sys = System([piece1, piece2])
 
-pf_dom = PolyFunc{2}()
-A = α*(@SMatrix [cos(θ) -sin(θ); sin(θ) cos(θ)])
-b = @SVector [0.0, 0.0]
-CPB.add_piece!(sys, pf_dom, 2, A, b, 1)
+ρ = 0.25
+mlist_init = [
+    [[-ρ, -ρ], [-ρ, ρ], [ρ, -ρ], [ρ, ρ]], Vector{Float64}[]
+]
 
-mset_init = MultiSet{2,2}()
-CPB.add_point!(mset_init, 1, SVector(-0.25, -0.25))
-CPB.add_point!(mset_init, 1, SVector(-0.25, 0.25))
-CPB.add_point!(mset_init, 1, SVector(0.25, -0.25))
-CPB.add_point!(mset_init, 1, SVector(0.25, 0.25))
-
-mpf_inv = MultiPolyFunc{2,2}()
+mpf_inv = MultiPolyFunc([
+    PolyFunc(AffForm{Vector{Float64},Float64}[]) for loc = 1:2
+])
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, mset_init, 0.1, 1e-8)
-const _mpfs = MultiPolyFunc{2,2}[]
-const _wits = CPB.Witness{2,2}[]
-function rec_mpfs_wits(::Any, mpf, wit)
-    push!(_mpfs, CPB.MultiPolyFunc(
-        map(pf -> PolyFunc(copy(pf.afs)), mpf.pfs)
+const wit_trace = Witness[]
+const mpf_trace = MultiPolyFunc{PolyFunc{AffForm{Vector{Float64},Float64}}}[]
+function rec_mpf_wit_trace(::Any, mpf, wit)
+    push!(mpf_trace, MultiPolyFunc(
+        map(pf -> PolyFunc(copy(pf.afs)), mpf.pfs
+    )))
+    push!(wit_trace, Witness(
+        copy.(wit.mlist_inside), copy.(wit.mlist_image),
+        copy.(wit.mlist_unknown), copy.(wit.mlist_outside)
     ))
-    inside_ = MultiSet(copy.(wit.inside.sets))
-    image_ = MultiSet(copy.(wit.image.sets))
-    outside_ = MultiSet(copy.(wit.outside.sets))
-    unknown_ = MultiSet(copy.(wit.unknown.sets))
-    push!(_wits, CPB.Witness(inside_, image_, outside_, unknown_))
 end
+
+ϵ = 0.15
+δ = 1e-8
+iter_max = Inf
+
 status, mpf, wit = CPB.learn_lyapunov!(
-    lear, Inf, solver, solver, callback_fcn=rec_mpfs_wits
+    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
+    M, N, solver, solver, do_print=false, callback_fcn=rec_mpf_wit_trace
 )
 
 display(status)
+
+push!(mpf_trace, mpf)
+push!(wit_trace, wit)
 
 # Illustration
 fig = figure(0, figsize=(15, 8))
@@ -129,20 +139,31 @@ for (ax, p) in zip(ax_, polypfs)
     ax.add_collection(p)
 end
 
-for (iter, (wit, mpf)) in enumerate(zip(_wits, _mpfs))
-    for (h, points) in zip(hinsides, wit.inside.sets)
+niter = length(wit_trace)
+nchar = 60
+println(repeat("=", nchar))
+ichar = 1
+
+for (iter, (wit, mpf)) in enumerate(zip(wit_trace, mpf_trace))
+    global ichar
+    while iter ≥ ichar*niter/nchar
+        ichar += 1
+        print("=")
+    end
+
+    for (h, points) in zip(hinsides, wit.mlist_inside)
         h.set_xdata(getindex.(points, 1))
         h.set_ydata(getindex.(points, 2))
     end
-    for (h, points) in zip(himages, wit.image.sets)
+    for (h, points) in zip(himages, wit.mlist_image)
         h.set_xdata(getindex.(points, 1))
         h.set_ydata(getindex.(points, 2))
     end
-    for (h, points) in zip(houtsides, wit.outside.sets)
+    for (h, points) in zip(houtsides, wit.mlist_outside)
         h.set_xdata(getindex.(points, 1))
         h.set_ydata(getindex.(points, 2))
     end
-    for (h, points) in zip(hunknowns, wit.unknown.sets)
+    for (h, points) in zip(hunknowns, wit.mlist_unknown)
         h.set_xdata(getindex.(points, 1))
         h.set_ydata(getindex.(points, 2))
     end
@@ -165,5 +186,7 @@ for (iter, (wit, mpf)) in enumerate(zip(_wits, _mpfs))
         "./examples/figures/animation_rotating/frame_", iter, ".png"
     ), bbox_inches="tight", dpi=50)
 end
+
+println()
 
 end # module

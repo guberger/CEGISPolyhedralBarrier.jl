@@ -42,12 +42,6 @@ mlist_init = [[[1.0]]]
 mpf_safe = MultiPolyFunc([PolyFunc([AffForm([1.0], -4.0)])])
 mpf_inv = MultiPolyFunc([PolyFunc([AffForm([-1.0], 0.0)])])
 
-ϵ = 100.0
-δ = 1e-3
-xmax = 1e2
-tol_dom = 1e-6
-iter_max = 1
-
 wit_trace = Witness[]
 function rec_wit_trace(::Any, ::Any, wit)
     push!(wit_trace, Witness(
@@ -55,6 +49,13 @@ function rec_wit_trace(::Any, ::Any, wit)
         copy.(wit.mlist_unknown), copy.(wit.mlist_outside)
     ))
 end
+
+ϵ = 100.0
+δ = 1e-3
+xmax = 1e2
+tol_dom = 1e-6
+iter_max = 1
+
 status, = CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
     M, N, solver, solver,

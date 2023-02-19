@@ -80,19 +80,18 @@ af, r = CPB.compute_af(
     @test norm(af.a, Inf) ≈ 1
 end
 
-## Set #3
 βmax = 1.0
 af, r = CPB.compute_af(
     points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
-@testset "compute sep #3" begin
-    @test r ≈ (1 + η)/3
+@testset "compute sep #2.3" begin
+    @test r ≈ 1/3
     @test norm(af.a, Inf) ≈ 1
     @test abs(af.β) ≈ βmax
 end
 
-## Set #4
+## Set #3
 βmax = 100.0
 points_inside = [[1.0, -1.0]]
 points_image = [[1.0, 1.0]]
@@ -101,7 +100,7 @@ af, r = CPB.compute_af(
     points_inside, points_image, point_outside, η, βmax, N, solver
 )
 
-@testset "compute sep #4" begin
+@testset "compute sep #3" begin
     @test r ≈ (2 - 2*η)/4
     @test norm(af.a, Inf) ≈ 1
 end

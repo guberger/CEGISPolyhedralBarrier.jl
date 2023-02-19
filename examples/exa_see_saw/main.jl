@@ -1,17 +1,18 @@
 module ExampleSeeSaw
 
 using LinearAlgebra
-using StaticArrays
 using JuMP
 using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
-System = CPB.System
-MultiSet = CPB.MultiSet
+AffForm = CPB.AffForm
 PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
+Piece = CPB.Piece
+System = CPB.System
+Witness = CPB.Witness
 
 include("../utils/plotting2D.jl")
 
@@ -20,43 +21,43 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-_EYE_ = SMatrix{2,2}(1.0*I)
+N = 2
+M = 1
 
-mpf_inv = MultiPolyFunc{2,1}()
-CPB.add_af!(mpf_inv, 1, SVector(-1.0, 0.0), -20.0)
-CPB.add_af!(mpf_inv, 1, SVector(1.0, 0.0), -20.0)
-CPB.add_af!(mpf_inv, 1, SVector(0.0, -1.0), -20.0)
-CPB.add_af!(mpf_inv, 1, SVector(0.0, 1.0), -20.0)
+INN = Matrix{Float64}(I, N, N)
 
-sys = System{2}()
+mpf_inv = MultiPolyFunc([PolyFunc([
+    AffForm([-1.0, 0.0], -20.0),
+    AffForm([1.0, 0.0], -20.0),
+    AffForm([0.0, -1.0], -20.0),
+    AffForm([0.0, 1.0], -20.0)
+])])
 
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(1.0, 0.0), -4.0)
-b = @SVector [1.0, 2.0]
-CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 1)
+pf_dom = PolyFunc([AffForm([1.0, 0.0], -4.0)])
+b = [1.0, 2.0]
+piece1 = Piece(pf_dom, 1, INN, b, 1)
+#
+pf_dom = PolyFunc([
+    AffForm([-1.0, 0.0], 5.0), AffForm([1.0, 0.0], -7.0)
+])
+b = [2.0, 1.0]
+piece2 = Piece(pf_dom, 1, INN, b, 1)
+#
+pf_dom = PolyFunc([
+    AffForm([-1.0, 0.0], 7.0), AffForm([1.0, 0.0], -9.0)
+])
+b = [1.0, 3.0]
+piece3 = Piece(pf_dom, 1, INN, b, 1)
+#
+pf_dom = PolyFunc([AffForm([-1.0, 0.0], 9.0)])
+b = [2.0, 1.0]
+piece4 = Piece(pf_dom, 1, INN, b, 1)
+#
+sys = System([piece1, piece2, piece3, piece4])
 
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(-1.0, 0.0), 5.0)
-CPB.add_af!(pf_dom, SVector(1.0, 0.0), -7.0)
-b = @SVector [2.0, 1.0]
-CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 1)
+mlist_init = [[[0.0, 0.0]]]
 
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(-1.0, 0.0), 7.0)
-CPB.add_af!(pf_dom, SVector(1.0, 0.0), -9.0)
-b = @SVector [1.0, 3.0]
-CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 1)
-
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(-1.0, 0.0), 9.0)
-b = @SVector [2.0, 1.0]
-CPB.add_piece!(sys, pf_dom, 1, _EYE_, b, 1)
-
-mset_init = MultiSet{2,1}()
-CPB.add_point!(mset_init, 1, SVector(0.0, 0.0))
-
-mpf_safe = MultiPolyFunc{2,1}()
-CPB.add_af!(mpf_safe, 1, SVector(1.0, -2.1), -0.1)
+mpf_safe = MultiPolyFunc([PolyFunc([AffForm([1.0, -2.1], -0.1)])])
 
 # Illustration
 fig = figure(0, figsize=(10, 8))
@@ -88,8 +89,14 @@ for piece in sys.pieces
 end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, mset_init, 1e-2, 1e-8)
-status, mpf, wit = CPB.learn_lyapunov!(lear, Inf, solver, solver)
+ϵ = 1e-2
+δ = 1e-8
+iter_max = Inf
+
+status, mpf, wit = CPB.learn_lyapunov!(
+    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
+    M, N, solver, solver
+)
 
 display(status)
 
@@ -97,25 +104,25 @@ for (loc, pf) in enumerate(mpf.pfs)
     plot_level!(ax_[loc], pf.afs, lims, fc="red", ec="red", fa=0.1, ew=0.5)
 end
 
-for (loc, points) in enumerate(wit.inside.sets)
+for (loc, points) in enumerate(wit.mlist_inside)
     for point in points
         plot_point!(ax_[loc], point, mc="blue")
     end
 end
 
-for (loc, points) in enumerate(wit.image.sets)
+for (loc, points) in enumerate(wit.mlist_image)
     for point in points
         plot_point!(ax_[loc], point, mc="purple")
     end
 end
 
-for (loc, points) in enumerate(wit.outside.sets)
+for (loc, points) in enumerate(wit.mlist_outside)
     for point in points
         plot_point!(ax_[loc], point, mc="red")
     end
 end
 
-for (loc, points) in enumerate(wit.unknown.sets)
+for (loc, points) in enumerate(wit.mlist_unknown)
     for point in points
         plot_point!(ax_[loc], point, mc="orange")
     end

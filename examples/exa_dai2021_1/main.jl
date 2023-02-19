@@ -1,17 +1,18 @@
 module ExampleDai2021
 
 using LinearAlgebra
-using StaticArrays
 using JuMP
 using Gurobi
 using PyPlot
 
 include("../../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
-System = CPB.System
-MultiSet = CPB.MultiSet
+AffForm = CPB.AffForm
 PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
+Piece = CPB.Piece
+System = CPB.System
+Witness = CPB.Witness
 
 include("../utils/plotting2D.jl")
 
@@ -20,53 +21,54 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-mpf_inv = MultiPolyFunc{2,1}()
-CPB.add_af!(mpf_inv, 1, SVector(-1.0, 0.0), -2.0)
-CPB.add_af!(mpf_inv, 1, SVector(1.0, 0.0), -2.0)
-CPB.add_af!(mpf_inv, 1, SVector(0.0, -1.0), -2.0)
-CPB.add_af!(mpf_inv, 1, SVector(0.0, 1.0), -2.0)
+N = 2
+M = 1
 
-sys = System{2}()
+mpf_inv = MultiPolyFunc([PolyFunc([
+    AffForm([-1.0, 0.0], -2.0),
+    AffForm([1.0, 0.0], -2.0),
+    AffForm([0.0, -1.0], -2.0),
+    AffForm([0.0, 1.0], -2.0)
+])])
 
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(-1.0, 0.0), 0.0)
-CPB.add_af!(pf_dom, SVector(0.0, 1.0), 0.0)
-A = @SMatrix [-0.999 0.0; -0.139 0.341]
-b = @SVector [0.0, 0.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 1)
+pf_dom = PolyFunc([
+    AffForm([-1.0, 0.0], 0.0), AffForm([0.0, 1.0], 0.0)
+])
+A = [-0.999 0.0; -0.139 0.341]
+b = [0.0, 0.0]
+piece1 = Piece(pf_dom, 1, A, b, 1)
+#
+pf_dom = PolyFunc([
+    AffForm([-1.0, 0.0], 0.0), AffForm([0.0, -1.0], 0.0)
+])
+A = [0.436 0.323; 0.388 -0.049]
+b = [0.0, 0.0]
+piece2 = Piece(pf_dom, 1, A, b, 1)
+#
+pf_dom = PolyFunc([
+    AffForm([1.0, 0.0], 0.0), AffForm([0.0, 1.0], 0.0)
+])
+A = [-0.457 0.215; 0.491 0.49]
+b = [0.0, 0.0]
+piece3 = Piece(pf_dom, 1, A, b, 1)
+#
+pf_dom = PolyFunc([
+    AffForm([1.0, 0.0], 0.0), AffForm([0.0, -1.0], 0.0)
+])
+A = [-0.022 0.344; 0.458 0.271]
+b = [0.0, 0.0]
+piece4 = Piece(pf_dom, 1, A, b, 1)
+#
+sys = System([piece1, piece2, piece3, piece4])
 
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(-1.0, 0.0), 0.0)
-CPB.add_af!(pf_dom, SVector(0.0, -1.0), 0.0)
-A = @SMatrix [0.436 0.323; 0.388 -0.049]
-b = @SVector [0.0, 0.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 1)
+mpf_safe = MultiPolyFunc([PolyFunc([
+    AffForm([-1.0, -1.0], -1.8),
+    AffForm([-1.0, 1.0], -1.8),
+    AffForm([1.0, -1.0], -1.8),
+    AffForm([1.0, 1.0], -1.8)
+])])
 
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(1.0, 0.0), 0.0)
-CPB.add_af!(pf_dom, SVector(0.0, 1.0), 0.0)
-A = @SMatrix [-0.457 0.215; 0.491 0.49]
-b = @SVector [0.0, 0.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 1)
-
-pf_dom = PolyFunc{2}()
-CPB.add_af!(pf_dom, SVector(1.0, 0.0), 0.0)
-CPB.add_af!(pf_dom, SVector(0.0, -1.0), 0.0)
-A = @SMatrix [-0.022 0.344; 0.458 0.271]
-b = @SVector [0.0, 0.0]
-CPB.add_piece!(sys, pf_dom, 1, A, b, 1)
-
-mpf_safe = MultiPolyFunc{2,1}()
-CPB.add_af!(mpf_safe, 1, SVector(-1.0, -1.0), -1.8)
-CPB.add_af!(mpf_safe, 1, SVector(-1.0, 1.0), -1.8)
-CPB.add_af!(mpf_safe, 1, SVector(1.0, -1.0), -1.8)
-CPB.add_af!(mpf_safe, 1, SVector(1.0, 1.0), -1.8)
-
-mset_init = MultiSet{2,1}()
-CPB.add_point!(mset_init, 1, SVector(-1.0, 0.0))
-CPB.add_point!(mset_init, 1, SVector(1.0, 0.0))
-CPB.add_point!(mset_init, 1, SVector(0.0, -1.0))
-CPB.add_point!(mset_init, 1, SVector(0.0, 1.0))
+mlist_init = [[[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]]]
 
 # Illustration
 fig = figure(0, figsize=(15, 8))
@@ -102,55 +104,64 @@ for ax in ax_
 end
 
 ## Learner
-lear = CPB.Learner(sys, mpf_safe, mpf_inv, mset_init, 0.1, 1e-8)
-const _wits = CPB.Witness{2,1}[]
-function rec_wits(::Any, ::Any, wit)
-    inside_ = MultiSet(copy.(wit.inside.sets))
-    image_ = MultiSet(copy.(wit.image.sets))
-    outside_ = MultiSet(copy.(wit.outside.sets))
-    unknown_ = MultiSet(copy.(wit.unknown.sets))
-    push!(_wits, CPB.Witness(inside_, image_, outside_, unknown_))
+const wit_trace = Witness[]
+const mpf_trace = MultiPolyFunc{PolyFunc{AffForm{Vector{Float64},Float64}}}[]
+function rec_mpf_wit_trace(::Any, mpf, wit)
+    push!(mpf_trace, MultiPolyFunc(
+        map(pf -> PolyFunc(copy(pf.afs)), mpf.pfs
+    )))
+    push!(wit_trace, Witness(
+        copy.(wit.mlist_inside), copy.(wit.mlist_image),
+        copy.(wit.mlist_unknown), copy.(wit.mlist_outside)
+    ))
 end
+
+ϵ = 0.1
+δ = 1e-8
+iter_max = Inf
+
 status, mpf, wit = CPB.learn_lyapunov!(
-    lear, Inf, solver, solver, callback_fcn=rec_wits
+    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
+    M, N, solver, solver, do_print=false, callback_fcn=rec_mpf_wit_trace
 )
 
 display(status)
 
-for (loc, pf) in enumerate(mpf.pfs)
-    plot_level!(
-        ax_[length(_wits) + 1], pf.afs, lims,
-        fc="red", ec="red", fa=0.1, ew=0.5
-    )
-end
+push!(mpf_trace, mpf)
+push!(wit_trace, wit)
 
-for (iter, wit) in enumerate(_wits)
-    for (loc, points) in enumerate(wit.inside.sets)
+for (iter, (wit, mpf)) in enumerate(zip(wit_trace, mpf_trace))
+    for (loc, points) in enumerate(wit.mlist_inside)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="blue", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.image.sets)
+    for (loc, points) in enumerate(wit.mlist_image)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="purple", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.outside.sets)
+    for (loc, points) in enumerate(wit.mlist_outside)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="red", ms=5)
         end
     end
 
-    for (loc, points) in enumerate(wit.unknown.sets)
+    for (loc, points) in enumerate(wit.mlist_unknown)
         @assert loc == 1
         for point in points
             plot_point!(ax_[iter], point, mc="orange", ms=5)
         end
+    end
+
+    for (loc, pf) in enumerate(mpf.pfs)
+        @assert loc == 1
+        plot_level!(ax_[iter], pf.afs, lims)
     end
 end
 

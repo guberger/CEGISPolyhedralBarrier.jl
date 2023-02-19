@@ -11,14 +11,14 @@ function compute_af(
     af = AffForm(a, β)
 
     for point in points_inside
-        @constraint(model, _eval(af, point) + r - η ≤ 0)
+        @constraint(model, _eval(af, point) + r ≤ 0)
     end
 
     for point in points_image
-        @constraint(model, _eval(af, point) + r + η ≤ 0)
+        @constraint(model, _eval(af, point) + r + 2*η ≤ 0)
     end
 
-    @constraint(model, _eval(af, point_outside) - r - η ≥ 0)
+    @constraint(model, _eval(af, point_outside) - r ≥ 0)
 
     @objective(model, Max, r)
 
