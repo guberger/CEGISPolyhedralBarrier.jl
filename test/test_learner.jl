@@ -50,7 +50,7 @@ function rec_wit_trace(::Any, ::Any, wit)
     ))
 end
 
-ϵ = 100.0
+ϵ = 2.0 - eps(2.0)
 δ = 1e-3
 xmax = 1e2
 tol_dom = 1e-6

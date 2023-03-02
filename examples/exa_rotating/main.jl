@@ -70,7 +70,7 @@ end
 δ = 1e-8
 iter_max = Inf
 
-status, mpf, wit = Main.@code_warntype CPB.learn_lyapunov!(
+status, mpf, wit = CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
     M, N, solver, solver, do_print=false, callback_fcn=rec_mpf_wit_trace
 )
@@ -79,8 +79,6 @@ display(status)
 
 push!(mpf_trace, mpf)
 push!(wit_trace, wit)
-
-@assert false
 
 # Illustration
 fig = figure(0, figsize=(15, 8))
