@@ -34,14 +34,14 @@ Iup = 25
 Tup = 30
 cf = 1.0
 dt = 0.03
-Tstab = 1.5
+Tstab = 1.5 - dt
 
 A = [exp(-cf*dt) 0; 0 1]
 Astab = [exp(-cf*dt) 0; 0 0]
 blo = [Tlo*(1 - exp(-cf*dt)), dt]
-blostab = [Tlo*(1 - exp(-cf*dt)), 0]
+blostab = [Tlo*(1 - exp(-cf*dt)), Tstab + dt]
 bup = [Tup*(1 - exp(-cf*dt)), dt]
-bupstab = [Tup*(1 - exp(-cf*dt)), 0]
+bupstab = [Tup*(1 - exp(-cf*dt)), Tstab + dt]
 
 # cooling
 pf_dom = PolyFunc([AffForm([-1.0, 0.0], Llo), AffForm([0.0, 1.0], -Tstab)])
@@ -122,11 +122,11 @@ mpf_inv = MultiPolyFunc([
 mpf_safe = MultiPolyFunc([
     [PolyFunc([
         AffForm([-1.0, 0.0], Tlo), AffForm([1.0, 0.0], -Tup),
-        AffForm([0.0, -1.0], 0), AffForm([0.0, 1.0], -(Tstab + 3*dt))
+        AffForm([0.0, -1.0], 0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
     ]) for loc = 1:2]...,
     [PolyFunc([
         AffForm([-1.0, 0.0], Slo), AffForm([1.0, 0.0], -Sup),
-        AffForm([0.0, -1.0], -2*dt), AffForm([0.0, 1.0], -2*dt)
+        AffForm([0.0, -1.0], 0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
     ]) for loc = 1:2]...
 ])
 # empty!(mpf_safe.pfs[3].afs)
@@ -139,7 +139,8 @@ mlist_init = [
     Vector{Float64}[]
 ]
 
-ϵ = 0.005
+ϵ = dt/3
+display(ϵ)
 δ = 1e-8
 iter_max = Inf
 
@@ -202,5 +203,52 @@ for (loc, points) in enumerate(wit.mlist_unknown)
         plot_point!(ax_[loc], point, mc="orange")
     end
 end
+
+f = open(string(@__DIR__, "/witnesses.txt"), "w")
+println(f, "image")
+for (loc, points_image) in enumerate(wit.mlist_image)
+    str = string(loc, ":")
+    for point in points_image
+        str = string(str, "(", point[1], ",", point[2], ")")
+    end
+    println(f, str)
+end
+println(f, "unknown")
+for (loc, points_unknown) in enumerate(wit.mlist_unknown)
+    str = string(loc, ":")
+    for point in points_unknown
+        str = string(str, "(", point[1], ",", point[2], ")")
+    end
+    println(f, str)
+end
+println(f, "outside")
+for (loc, points_outside) in enumerate(wit.mlist_outside)
+    str = string(loc, ":")
+    for point in points_outside
+        str = string(str, "(", point[1], ",", point[2], ")")
+    end
+    println(f, str)
+end
+println(f, "invariant")
+zip_iter = zip(mpf_safe.pfs, mpf_inv.pfs, mpf.pfs)
+for (loc, (pf_safe, pf_inv, pf)) in enumerate(zip_iter)
+    str = string(loc, ":")
+    afs = union(pf_safe.afs, pf_inv.afs, pf.afs)
+    A = zeros(length(afs), 2)
+    b = zeros(length(afs))
+    for (i, af) in enumerate(afs)
+        A[i, 1], A[i, 2] = (af.a...,)
+        b[i] = -af.β
+    end
+    verts = compute_vertices_hrep(A, b)
+    for vert in verts
+        str = string(str, "(", vert[1], ",", vert[2], ")")
+    end
+    if !isempty(verts)
+        str = string(str, "(", verts[1][1], ",", verts[1][2], ")")
+    end
+    println(f, str)
+end
+close(f)
 
 end # module
