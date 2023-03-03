@@ -62,9 +62,15 @@ status, = CPB.learn_lyapunov!(
     tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
 )
 
+display(wit_trace)
+
 @testset "learn lyapunov: max iter" begin
     @test status == CPB.MAX_ITER_REACHED
     @test length(wit_trace) == 1
+    @test wit_trace[1].mlist_inside == [[[1]]]
+    @test all(isempty, wit_trace[1].mlist_image)
+    @test all(isempty, wit_trace[1].mlist_unknown)
+    @test all(isempty, wit_trace[1].mlist_outside)
 end
 
 iter_max = 3
@@ -80,15 +86,15 @@ status, mpf, wit_final = CPB.learn_lyapunov!(
     @test status == CPB.BARRIER_FOUND
     @test length(wit_trace) == 2
     #1
-    @test wit_trace[1].mlist_inside[1] ≈ [[1]]
-    @test isempty(wit_trace[1].mlist_image[1])
-    @test isempty(wit_trace[1].mlist_outside[1])
-    @test isempty(wit_trace[1].mlist_unknown[1])
+    @test wit_trace[1].mlist_inside == [[[1]]]
+    @test all(isempty, wit_trace[1].mlist_image)
+    @test all(isempty, wit_trace[1].mlist_unknown)
+    @test all(isempty, wit_trace[1].mlist_outside)
     #2
     @test wit_trace[2].mlist_inside[1] ≈ [[1]]
-    @test isempty(wit_trace[2].mlist_image[1])
+    @test all(isempty, wit_trace[2].mlist_image)
+    @test all(isempty, wit_trace[2].mlist_unknown)
     @test wit_trace[2].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[2].mlist_unknown[1])
 end
 
 pf_dom = PolyFunc([AffForm([-1.0], 3.0), AffForm([1.0], -3.0)])
@@ -120,13 +126,13 @@ status, mpf, wit_final = CPB.learn_lyapunov!(
     #1
     @test wit_trace[1].mlist_inside[1] ≈ [[1]]
     @test wit_trace[1].mlist_image[1] ≈ [[3.5]]
-    @test isempty(wit_trace[1].mlist_outside[1])
-    @test isempty(wit_trace[1].mlist_unknown[1])
+    @test all(isempty, wit_trace[1].mlist_unknown)
+    @test all(isempty, wit_trace[1].mlist_outside)
     #2
     @test wit_trace[2].mlist_inside[1] ≈ [[1]]
     @test wit_trace[2].mlist_image[1] ≈ [[3.5]]
+    @test all(isempty, wit_trace[2].mlist_unknown)
     @test wit_trace[2].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[2].mlist_unknown[1])
 end
 
 #-------------------------------------------------------------------------------
@@ -172,16 +178,22 @@ status, mpf, wit_final = CPB.learn_lyapunov!(
 
 @testset "learn lyapunov: unknown -> outside" begin
     @test status == CPB.BARRIER_INFEASIBLE
-    @test length(wit_trace) == 4
-    #1
-    @test wit_trace[4].mlist_inside[1] ≈ [[1]]
-    @test wit_trace[4].mlist_inside[2] ≈ [[0]]
-    @test isempty(wit_trace[4].mlist_image[1])
-    @test wit_trace[4].mlist_image[2] ≈ [[0.9]]
-    @test wit_trace[4].mlist_outside[1] ≈ [[3]]
-    @test wit_trace[4].mlist_outside[2] ≈ [[1]]
-    @test isempty(wit_trace[4].mlist_unknown[1])
-    @test isempty(wit_trace[4].mlist_unknown[2])
+    @test length(wit_trace) == 3
+    #1-2
+    for i = 1:2
+        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0]]]
+        @test isempty(wit_trace[i].mlist_image[1])
+        @test wit_trace[i].mlist_image[2] ≈ [[0.9]]
+        @test all(isempty, wit_trace[i].mlist_unknown)
+        @test all(isempty, wit_trace[i].mlist_outside)
+    end
+    #3
+    @test wit_trace[3].mlist_inside ≈ [[[1]], [[0]]]
+    @test isempty(wit_trace[3].mlist_image[1])
+    @test wit_trace[3].mlist_image[2] ≈ [[0.9]]
+    @test all(isempty, wit_trace[3].mlist_unknown)
+    @test wit_trace[3].mlist_outside[1] ≈ [[3]]
+    @test isempty(wit_trace[3].mlist_outside[2])
 end
 
 ϵ = 1e-2
@@ -200,15 +212,29 @@ status, mpf, wit_final = CPB.learn_lyapunov!(
 @testset "learn lyapunov: unknown! gets excluded" begin
     @test status == CPB.BARRIER_FOUND
     @test length(wit_trace) == 4
-    #1
-    @test wit_trace[4].mlist_inside[1] ≈ [[1]]
-    @test wit_trace[4].mlist_inside[2] ≈ [[0]]
+    #1-2
+    for i = 1:2
+        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0]]]
+        @test isempty(wit_trace[i].mlist_image[1])
+        @test wit_trace[i].mlist_image[2] ≈ [[0.9]]
+        @test all(isempty, wit_trace[i].mlist_unknown)
+        @test all(isempty, wit_trace[i].mlist_outside)
+    end
+    #3
+    @test wit_trace[3].mlist_inside ≈ [[[1]], [[0]]]
+    @test isempty(wit_trace[3].mlist_image[1])
+    @test wit_trace[3].mlist_image[2] ≈ [[0.9]]
+    @test all(isempty, wit_trace[3].mlist_unknown)
+    @test wit_trace[3].mlist_outside[1] ≈ [[3]]
+    @test isempty(wit_trace[3].mlist_outside[2])
+    #4
+    @test wit_trace[4].mlist_inside ≈ [[[1]], [[0]]]
     @test isempty(wit_trace[4].mlist_image[1])
     @test wit_trace[4].mlist_image[2] ≈ [[0.9]]
-    @test wit_trace[4].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[4].mlist_outside[2])
     @test isempty(wit_trace[4].mlist_unknown[1])
     @test wit_trace[4].mlist_unknown[2] ≈ [[1]]
+    @test wit_trace[4].mlist_outside[1] ≈ [[3]]
+    @test isempty(wit_trace[4].mlist_outside[2])
 end
 
 ϵ = 1e-1
@@ -227,15 +253,37 @@ status, mpf, wit_final = CPB.learn_lyapunov!(
 @testset "learn lyapunov: unknown! gets included" begin
     @test status == CPB.BARRIER_FOUND
     @test length(wit_trace) == 6
-    #1
-    @test wit_trace[6].mlist_inside[1] ≈ [[1]]
-    @test wit_trace[6].mlist_inside[2] ≈ [[0], [1]]
-    @test wit_trace[6].mlist_image[1] ≈ [[2.5]]
-    @test wit_trace[6].mlist_image[2] ≈ [[0.9]]
-    @test wit_trace[6].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[6].mlist_outside[2])
-    @test isempty(wit_trace[6].mlist_unknown[1])
-    @test isempty(wit_trace[6].mlist_unknown[2])
+    #1-2
+    for i = 1:2
+        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0]]]
+        @test isempty(wit_trace[i].mlist_image[1])
+        @test wit_trace[i].mlist_image[2] ≈ [[0.9]]
+        @test all(isempty, wit_trace[i].mlist_unknown)
+        @test all(isempty, wit_trace[i].mlist_outside)
+    end
+    #3
+    @test wit_trace[3].mlist_inside ≈ [[[1]], [[0]]]
+    @test isempty(wit_trace[3].mlist_image[1])
+    @test wit_trace[3].mlist_image[2] ≈ [[0.9]]
+    @test all(isempty, wit_trace[3].mlist_unknown)
+    @test wit_trace[3].mlist_outside[1] ≈ [[3]]
+    @test isempty(wit_trace[3].mlist_outside[2])
+    #4
+    @test wit_trace[4].mlist_inside ≈ [[[1]], [[0]]]
+    @test isempty(wit_trace[4].mlist_image[1])
+    @test wit_trace[4].mlist_image[2] ≈ [[0.9]]
+    @test isempty(wit_trace[4].mlist_unknown[1])
+    @test wit_trace[4].mlist_unknown[2] ≈ [[1]]
+    @test wit_trace[4].mlist_outside[1] ≈ [[3]]
+    @test isempty(wit_trace[4].mlist_outside[2])
+    #5-6
+    for i = 5:6
+        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0], [1]]]
+        @test wit_trace[i].mlist_image ≈ [[[2.5]], [[0.9]]]
+        @test all(isempty, wit_trace[i].mlist_unknown)
+        @test wit_trace[i].mlist_outside[1] ≈ [[3]]
+        @test isempty(wit_trace[i].mlist_outside[2])
+    end
 end
 
 nothing
