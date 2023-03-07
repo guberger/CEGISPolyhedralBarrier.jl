@@ -1,4 +1,4 @@
-module ExampleIllustrative
+module ExampleThermostat
 
 using LinearAlgebra
 using JuMP
@@ -146,7 +146,7 @@ iter_max = Inf
 
 status, mpf, wit = CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver, do_print=false
+    M, N, solver, solver, do_print=true
 )
 
 display(status)
