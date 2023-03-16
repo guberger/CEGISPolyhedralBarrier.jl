@@ -42,13 +42,12 @@ TransON  = [0, γ, 0, 0]
 StabOFF  = [0, 0, γ, 0]
 StabON   = [0, 0, 0, γ]
 
-ZN() = zeros(N, N)
 α = exp(-cf*dt)
 βlo = Tlo*(1 - α)
 βup = Tup*(1 - α)
-A_Trans = ZN()
+A_Trans = zeros(N, N)
 A_Trans[1:2, 1:2] = [α 0; 0 1]
-A_Stab = ZN()
+A_Stab = zeros(N, N)
 A_Stab[1:2, 1:2]  = [α 0; 0 0]
 b_TransOFF = [βlo, dt, TransOFF...]
 b_TransON  = [βup, dt, TransON...]
