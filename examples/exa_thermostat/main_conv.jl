@@ -13,6 +13,8 @@ MultiPolyFunc = CPB.MultiPolyFunc
 Piece = CPB.Piece
 System = CPB.System
 Witness = CPB.Witness
+const _AT = AffForm{Vector{Float64},Float64}
+const _PT = PolyFunc{_AT}
 
 include("../utils/plotting2D.jl")
 
@@ -24,102 +26,49 @@ solver() = Model(optimizer_with_attributes(
 N = 6
 M = 1
 
-Tlo = 0
-Ilo = 15
-Slo = 18
-Llo = 19
-Lup = 21
-Sup = 22
-Iup = 25
-Tup = 30
+Tlo = 0.0
+Ilo = 15.0
+Slo = 18.0
+Llo = 19.0
+Lup = 21.0
+Sup = 22.0
+Iup = 25.0
+Tup = 30.0
 cf = 1.0
 dt = 0.03
-τ0 = 1.5 - dt
+Tstab = 1.5 - dt
 
-γ = 100
-TransOFF = [γ, 0, 0, 0]
-TransON  = [0, γ, 0, 0]
-StabOFF  = [0, 0, γ, 0]
-StabON   = [0, 0, 0, γ]
-
+γ = 100.0
+hots = [[ifelse(j == i, 1.0, 0.0) for j = 1:6] for i = 1:6]
+locs = [
+    [[ifelse(k == 2*j - 2 + i, γ, 0.0) for k = 1:4] for j = 1:2] for i = 1:2
+]
+guards_temp = [
+    [AffForm(-hots[1], +Llo), AffForm(+hots[1], -Llo)],
+    [AffForm(-hots[1], +Lup), AffForm(+hots[1], -Lup)]
+]
+guards_time = [AffForm(+hots[2], -Tstab), AffForm(-hots[2], +Tstab)]
 α = exp(-cf*dt)
-βlo = Tlo*(1 - α)
-βup = Tup*(1 - α)
-A_Trans = zeros(N, N)
-A_Trans[1:2, 1:2] = [α 0; 0 1]
-A_Stab = zeros(N, N)
-A_Stab[1:2, 1:2]  = [α 0; 0 0]
-b_TransOFF = [βlo, dt, TransOFF...]
-b_TransON  = [βup, dt, TransON...]
-b_StabOFF  = [βlo, τ0 + dt, StabOFF...]
-b_StabON   = [βup, τ0 + dt, StabON...]
-
-dom_above_Llo = [AffForm([-1, 0, 0, 0, 0, 0], Llo)]
-dom_below_Llo = [AffForm([1, 0, 0, 0, 0, 0], -Llo)]
-dom_above_Lup = [AffForm([-1, 0, 0, 0, 0, 0], Lup)]
-dom_below_Lup = [AffForm([1, 0, 0, 0, 0, 0], -Lup)]
-dom_Trans = [AffForm([0, 1, 0, 0, 0, 0], -τ0)]
-dom_Stab  = [AffForm([0, -1, 0, 0, 0, 0], τ0)]
-dom_TransOFF = [
-    AffForm([0, 0, -1, 0, 0, 0], γ), AffForm([0, 0, 1, 0, 0, 0], -γ),
-    AffForm([0, 0, 0, -1, 0, 0], 0), AffForm([0, 0, 0, 1, 0, 0], -0),
-    AffForm([0, 0, 0, 0, -1, 0], 0), AffForm([0, 0, 0, 0, 1, 0], -0),
-    AffForm([0, 0, 0, 0, 0, -1], 0), AffForm([0, 0, 0, 0, 0, 1], -0)
+As_ = [[α 0; 0 1], [α 0; 0 0]]
+As = [[As_[i] zeros(2, 4); zeros(4, 6)] for i = 1:2]
+bs_ = [
+    [[Tlo*(1 - α), dt], [Tlo*(1 - α), Tstab + dt]],
+    [[Tup*(1 - α), dt], [Tup*(1 - α), Tstab + dt]]
 ]
-dom_TransON = [
-    AffForm([0, 0, -1, 0, 0, 0], 0), AffForm([0, 0, 1, 0, 0, 0], -0),
-    AffForm([0, 0, 0, -1, 0, 0], γ), AffForm([0, 0, 0, 1, 0, 0], -γ),
-    AffForm([0, 0, 0, 0, -1, 0], 0), AffForm([0, 0, 0, 0, 1, 0], -0),
-    AffForm([0, 0, 0, 0, 0, -1], 0), AffForm([0, 0, 0, 0, 0, 1], -0)
-]
-dom_StabOFF = [
-    AffForm([0, 0, -1, 0, 0, 0], 0), AffForm([0, 0, 1, 0, 0, 0], -0),
-    AffForm([0, 0, 0, -1, 0, 0], 0), AffForm([0, 0, 0, 1, 0, 0], -0),
-    AffForm([0, 0, 0, 0, -1, 0], γ), AffForm([0, 0, 0, 0, 1, 0], -γ),
-    AffForm([0, 0, 0, 0, 0, -1], 0), AffForm([0, 0, 0, 0, 0, 1], -0)
-]
-dom_StabON = [
-    AffForm([0, 0, -1, 0, 0, 0], 0), AffForm([0, 0, 1, 0, 0, 0], -0),
-    AffForm([0, 0, 0, -1, 0, 0], 0), AffForm([0, 0, 0, 1, 0, 0], -0),
-    AffForm([0, 0, 0, 0, -1, 0], 0), AffForm([0, 0, 0, 0, 1, 0], -0),
-    AffForm([0, 0, 0, 0, 0, -1], γ), AffForm([0, 0, 0, 0, 0, 1], -γ)
-]
-
-# To TransOFF
-pf_dom = PolyFunc([dom_TransOFF..., dom_above_Llo..., dom_Trans...])
-piece_TOFF2TOFF = Piece(pf_dom, 1, A_Trans, b_TransOFF, 1)
-pf_dom = PolyFunc([dom_TransON..., dom_above_Lup..., dom_Trans...])
-piece_TON2TOFF = Piece(pf_dom, 1, A_Trans, b_TransOFF, 1)
-# To TransON
-pf_dom = PolyFunc([dom_TransOFF..., dom_below_Llo..., dom_Trans...])
-piece_TOFF2TON = Piece(pf_dom, 1, A_Trans, b_TransON, 1)
-pf_dom = PolyFunc([dom_TransON..., dom_below_Lup..., dom_Trans...])
-piece_TON2TON = Piece(pf_dom, 1, A_Trans, b_TransON, 1)
-# To StabOFF
-pf_dom = PolyFunc([dom_TransOFF..., dom_above_Llo..., dom_Stab...])
-piece_TOFF2SOFF = Piece(pf_dom, 1, A_Stab, b_StabOFF, 1)
-pf_dom = PolyFunc([dom_TransON..., dom_above_Lup..., dom_Stab...])
-piece_TON2SOFF = Piece(pf_dom, 1, A_Stab, b_StabOFF, 1)
-pf_dom = PolyFunc([dom_StabOFF..., dom_above_Llo...])
-piece_SOFF2SOFF = Piece(pf_dom, 1, A_Stab, b_StabOFF, 1)
-pf_dom = PolyFunc([dom_StabON..., dom_above_Lup...])
-piece_SON2SOFF = Piece(pf_dom, 1, A_Stab, b_StabOFF, 1)
-# To StabON
-pf_dom = PolyFunc([dom_TransOFF..., dom_below_Llo..., dom_Stab...])
-piece_TOFF2SON = Piece(pf_dom, 1, A_Stab, b_StabON, 1)
-pf_dom = PolyFunc([dom_TransON..., dom_below_Lup..., dom_Stab...])
-piece_TON2SON = Piece(pf_dom, 1, A_Stab, b_StabON, 1)
-pf_dom = PolyFunc([dom_StabOFF..., dom_below_Llo...])
-piece_SOFF2SON = Piece(pf_dom, 1, A_Stab, b_StabON, 1)
-pf_dom = PolyFunc([dom_StabON..., dom_below_Lup...])
-piece_SON2SON = Piece(pf_dom, 1, A_Stab, b_StabON, 1)
-#
-sys = System([
-    piece_TOFF2TOFF, piece_TON2TOFF,
-    piece_TOFF2TON, piece_TON2TON,
-    piece_TOFF2SOFF, piece_TON2SOFF, piece_SOFF2SOFF, piece_SON2SOFF,
-    piece_TOFF2SON, piece_TON2SON, piece_SOFF2SON, piece_SON2SON
-])
+bs = [[[bs_[i][j]..., locs[i][j]...] for j = 1:2] for i = 1:2]
+pieces = Piece{_PT,Matrix{Float64},Vector{Float64}}[]
+for (i1, j1, i2, j2) in Iterators.product(1:2, 1:2, 1:2, 1:2)
+    j1 > j2 && continue
+    afs = [guards_temp[i1][i2], guards_time[j2]]
+    loc1 = locs[i1][j1]
+    for i = 3:6
+        push!(afs, AffForm(+hots[i], -loc1[i - 2]))
+        push!(afs, AffForm(-hots[i], +loc1[i - 2]))
+    end
+    pf_dom = PolyFunc(afs)
+    push!(pieces, Piece(pf_dom, 1, As[j2], bs[i2][j2], 1))
+end
+sys = System(pieces)
 
 # simulation
 fig = figure(0, figsize=(10, 5))
@@ -137,16 +86,16 @@ end
 ax.set_ylabel("temperature")
 
 T0 = Tlo
-x = [T0, 0.0, TransOFF...]
+x = [T0, 0.0, locs[1][1]...]
 tol_dom = 1e-8
 
 for istep = 1:nstep
     global x
     T = x[1]
     loc = x[3:6]
-    @assert any(l -> norm(loc - l) < 1e-5, (TransOFF, TransON, StabOFF, StabON))
-    color = any(l -> norm(loc - l) < 1e-5, (TransOFF, StabOFF)) ? "blue" : "red"
-    marker = any(l -> norm(loc - l) < 1e-5, (TransOFF, TransON)) ? "x" : "."
+    @assert any(i -> any(j -> norm(loc - locs[i][j]) < 1e-5, 1:2), 1:2)
+    color = any(j -> norm(loc - locs[1][j]) < 1e-5, 1:2) ? "blue" : "red"
+    marker = any(i -> norm(loc - locs[i][1]) < 1e-5, 1:2) ? "x" : "."
     ax.plot((istep - 1)*dt, T, marker=marker, ms=5, c=color)
     istep == nstep && break
     flag = false
@@ -164,18 +113,19 @@ end
 mpf_inv = MultiPolyFunc([PolyFunc(AffForm{Vector{Float64},Float64}[])])
 
 mpf_safe = MultiPolyFunc([PolyFunc([
-    AffForm([-1, 0, 0, 0, (Slo - Tlo)/γ, (Slo - Tlo)/γ], Tlo),
-    AffForm([1, 0, 0, 0, (Tup - Sup)/γ, (Tup - Sup)/γ], -Tup),
-    AffForm([0, -1, 0, 0, 0, 0], 0),
-    AffForm([0, 1, 0, 0, 0, 0], -(τ0 + 2*dt))
+    AffForm([-1, 0, 0, 0, (Slo - Tlo)/γ, (Slo - Tlo)/γ], +Tlo),
+    AffForm([+1, 0, 0, 0, (Tup - Sup)/γ, (Tup - Sup)/γ], -Tup),
+    AffForm([0, -1, 0, 0, 0, 0], +0),
+    AffForm([0, +1, 0, 0, 0, 0], -(Tstab + 2*dt))
 ])])
 # empty!(mpf_safe.pfs[3].afs)
 # empty!(mpf_safe.pfs[4].afs)
 
-mlist_init = [[
-    [Ilo, 0, TransOFF...], [Iup, 0, TransOFF...],
-    [Ilo, 0, TransON...], [Iup, 0, TransON...]
-]]
+inits = [[Ilo, 0.0], [Iup, 0.0]]
+mlist_init = [Vector{Float64}[]]
+for (i, k) in Iterators.product(1:2, 1:2)
+    push!(mlist_init[1], [inits[k]..., locs[i][1]...])
+end
 
 ϵ = dt/3
 display(ϵ)
@@ -184,7 +134,7 @@ iter_max = Inf
 
 status, mpf, wit = CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver, do_print=true
+    M, N, solver, solver, do_print=true, βmax=0.0
 )
 
 display(status)
@@ -197,8 +147,8 @@ ax_ = fig.subplots(
 )
 
 xlims = (Tlo - 0.05*DT, Tup + 0.05*DT)
-ylims = (-5*dt, τ0 + 5*dt)
-lims = ([Tlo - 2*DT, -τ0 - 5*dt], [Tup + 2*DT, 2*τ0 + 5*dt])
+ylims = (-5*dt, Tstab + 5*dt)
+lims = ([Tlo - 2*DT, -Tstab - 5*dt], [Tup + 2*DT, 2*Tstab + 5*dt])
 
 for ax in ax_
     ax.set_xlim(xlims...)
@@ -207,9 +157,9 @@ for ax in ax_
 end
 
 afs = AffForm{Vector{Float64},Float64}[]
-locs = (TransOFF, TransON, StabOFF, StabON)
+locs_ = [locs[1]..., locs[2]...]
 
-for (iloc, loc) in enumerate(locs)
+for (iloc, loc) in enumerate(locs_)
     empty!(afs)
     for af in mpf_safe.pfs[1].afs
         push!(afs, AffForm(af.a[1:2]*1.0, af.β + dot(af.a[3:6], loc*1.0)))
@@ -229,25 +179,25 @@ end
 
 for x in wit.mlist_inside[1]
     loc = x[3:6]
-    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs)::Int
+    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs_)::Int
     # plot_point!(ax_[iloc], x[1:2], mc="blue")
 end
 
 for x in wit.mlist_image[1]
     loc = x[3:6]
-    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs)::Int
+    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs_)::Int
     plot_point!(ax_[iloc], x[1:2], mc="purple")
 end
 
 for x in wit.mlist_outside[1]
     loc = x[3:6]
-    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs)::Int
+    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs_)::Int
     plot_point!(ax_[iloc], x[1:2], mc="red")
 end
 
 for x in wit.mlist_unknown[1]
     loc = x[3:6]
-    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs)::Int
+    iloc = findfirst(l -> norm(loc - l) < 1e-5, locs_)::Int
     plot_point!(ax_[iloc], x[1:2], mc="orange")
 end
 

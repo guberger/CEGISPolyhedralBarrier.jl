@@ -13,6 +13,8 @@ MultiPolyFunc = CPB.MultiPolyFunc
 Piece = CPB.Piece
 System = CPB.System
 Witness = CPB.Witness
+const _AT = AffForm{Vector{Float64},Float64}
+const _PT = PolyFunc{_AT}
 
 include("../utils/plotting2D.jl")
 
@@ -24,60 +26,38 @@ solver() = Model(optimizer_with_attributes(
 N = 2
 M = 4
 
-Tlo = 0
-Ilo = 15
-Slo = 18
-Llo = 19
-Lup = 21
-Sup = 22
-Iup = 25
-Tup = 30
+Tlo = 0.0
+Ilo = 15.0
+Slo = 18.0
+Llo = 19.0
+Lup = 21.0
+Sup = 22.0
+Iup = 25.0
+Tup = 30.0
 cf = 1.0
 dt = 0.03
 Tstab = 1.5 - dt
 
-A = [exp(-cf*dt) 0; 0 1]
-Astab = [exp(-cf*dt) 0; 0 0]
-blo = [Tlo*(1 - exp(-cf*dt)), dt]
-blostab = [Tlo*(1 - exp(-cf*dt)), Tstab + dt]
-bup = [Tup*(1 - exp(-cf*dt)), dt]
-bupstab = [Tup*(1 - exp(-cf*dt)), Tstab + dt]
+locs = [[1, 3], [2, 4]]
+guards_temp = [
+    [AffForm([-1.0, 0.0], Llo), AffForm([1.0, 0.0], -Llo)],
+    [AffForm([-1.0, 0.0], Lup), AffForm([1.0, 0.0], -Lup)]
+]
+guards_time = [AffForm([0.0, 1.0], -Tstab), AffForm([0.0, -1.0], Tstab)]
+α = exp(-cf*dt)
+As = [[α 0; 0 1], [α 0; 0 0]]
+bs = [
+    [[Tlo*(1 - α), dt], [Tlo*(1 - α), Tstab + dt]],
+    [[Tup*(1 - α), dt], [Tup*(1 - α), Tstab + dt]]
+]
 
-# cooling
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], Llo), AffForm([0.0, 1.0], -Tstab)])
-piece1a = Piece(pf_dom, 1, A, blo, 1)
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], Llo), AffForm([0.0, -1.0], Tstab)])
-piece1b = Piece(pf_dom, 1, Astab, blostab, 3)
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], Llo)])
-piece1c = Piece(pf_dom, 3, Astab, blostab, 3)
-# start heating
-pf_dom = PolyFunc([AffForm([1.0, 0.0], -Llo), AffForm([0.0, 1.0], -Tstab)])
-piece2a = Piece(pf_dom, 1, A, bup, 2)
-pf_dom = PolyFunc([AffForm([1.0, 0.0], -Llo), AffForm([0.0, -1.0], Tstab)])
-piece2b = Piece(pf_dom, 1, Astab, bupstab, 4)
-pf_dom = PolyFunc([AffForm([1.0, 0.0], -Llo)])
-piece2c = Piece(pf_dom, 3, Astab, bupstab, 4)
-# heating
-pf_dom = PolyFunc([AffForm([1.0, 0.0], -Lup), AffForm([0.0, 1.0], -Tstab)])
-piece3a = Piece(pf_dom, 2, A, bup, 2)
-pf_dom = PolyFunc([AffForm([1.0, 0.0], -Lup), AffForm([0.0, -1.0], Tstab)])
-piece3b = Piece(pf_dom, 2, Astab, bupstab, 4)
-pf_dom = PolyFunc([AffForm([1.0, 0.0], -Lup)])
-piece3c = Piece(pf_dom, 4, Astab, bupstab, 4)
-# start cooling
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], Lup), AffForm([0.0, 1.0], -Tstab)])
-piece4a = Piece(pf_dom, 2, A, blo, 1)
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], Lup), AffForm([0.0, -1.0], Tstab)])
-piece4b = Piece(pf_dom, 2, Astab, blostab, 3)
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], Lup)])
-piece4c = Piece(pf_dom, 4, Astab, blostab, 3)
-#
-sys = System([
-    piece1a, piece1b, piece1c,
-    piece2a, piece2b, piece2c,
-    piece3a, piece3b, piece3c,
-    piece4a, piece4b, piece4c
-])
+pieces = Piece{_PT,Matrix{Float64},Vector{Float64}}[]
+for (i1, j1, i2, j2) in Iterators.product(1:2, 1:2, 1:2, 1:2)
+    j1 > j2 && continue
+    pf_dom = PolyFunc([guards_temp[i1][i2], guards_time[j2]])
+    push!(pieces, Piece(pf_dom, locs[i1][j1], As[j2], bs[i2][j2], locs[i2][j2]))
+end
+sys = System(pieces)
 
 # simulation
 fig = figure(0, figsize=(10, 5))
@@ -115,18 +95,16 @@ for istep = 1:nstep
     end
 end
 
-mpf_inv = MultiPolyFunc([
-    PolyFunc(AffForm{Vector{Float64},Float64}[]) for loc = 1:4
-])
+mpf_inv = MultiPolyFunc([PolyFunc(_AT[]) for loc = 1:4])
 
 mpf_safe = MultiPolyFunc([
     [PolyFunc([
         AffForm([-1.0, 0.0], Tlo), AffForm([1.0, 0.0], -Tup),
-        AffForm([0.0, -1.0], 0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
+        AffForm([0.0, -1.0], 0.0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
     ]) for loc = 1:2]...,
     [PolyFunc([
         AffForm([-1.0, 0.0], Slo), AffForm([1.0, 0.0], -Sup),
-        AffForm([0.0, -1.0], 0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
+        AffForm([0.0, -1.0], 0.0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
     ]) for loc = 1:2]...
 ])
 # empty!(mpf_safe.pfs[3].afs)
