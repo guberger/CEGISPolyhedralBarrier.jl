@@ -33,7 +33,12 @@ diff(i, j, N) = [k == j ? 1.0 : k == i ? -1.0 : 0.0 for k = 1:N]
 # hot(i, N)'*x[1:N] = x[i]
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
-N = 6
+# α = 0.75
+# lim = 0.1
+# N = 5 --> 11 iters
+# N = 6 --> 162 iters
+
+N = 5
 M = 1
 
 α = 0.75
@@ -94,11 +99,11 @@ nstep = 15
 ax.set_xlim((0, nstep))
 ax.set_xlabel("time")
 
-ax.set_ylim(-1, 1)
+ax.set_ylim(-0.3, 0.3)
 ax.plot((0, nstep), (0, 0), c="k")
 ax.set_ylabel("x")
 
-xinit = 0.1
+xinit = 0.25
 Nd = N ÷ 2
 x_list = Vector{Float64}[]
 for sets in combinations(1:N, N - Nd)
@@ -132,15 +137,17 @@ for (s, x) in enumerate(x_list)
         push!(x_traj, x)
     end
     for i = 1:N
-        ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+        # ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
     end
 end
 
-for s = 1:100
+xsample = 0.3
+
+for s = 1:1
     c = colors[mod(s - 1, length(colors)) + 1]
     x = rand(N)
     x = x .- sum(x)/N
-    x = x/norm(x, Inf)*xinit
+    x = x/norm(x, Inf)*xsample
     @assert abs(sum(x)) < 1e-8
     x_traj = [x]
     for t = 1:nstep
@@ -172,9 +179,9 @@ ax.plot((0, nstep), (-xsafe, -xsafe), c="k")
 
 # error("Stop here please")
 
-ϵ = lim/5
+ϵ = lim/10
 δ = 1e-8
-iter_max = Inf
+iter_max = Inf*-1
 
 status, mpf, wit = CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
@@ -182,11 +189,6 @@ status, mpf, wit = CPB.learn_lyapunov!(
 )
 
 display(status)
-display(wit.mlist_inside)
-display(wit.mlist_image)
-display(wit.mlist_unknown)
-display(wit.mlist_outside)
-
-display(next_state(sys, wit.mlist_outside[1][1]))
+display(mpf.pfs[1].afs)
 
 end # module
