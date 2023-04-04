@@ -2,6 +2,7 @@ module ExampleTrains
 
 using Random
 using LinearAlgebra
+using Combinatorics
 using JuMP
 using Gurobi
 using PyPlot
@@ -28,14 +29,14 @@ solver() = Model(optimizer_with_attributes(
 ))
 
 # diff(i, j, N)'*x[1:N] = x[j] - x[i]
-diff(i, j, N) = [ifelse(k == j, 1.0, ifelse(k == i, -1.0, 0.0)) for k = 1:N]
+diff(i, j, N) = [k == j ? 1.0 : k == i ? -1.0 : 0.0 for k = 1:N]
 # hot(i, N)'*x[1:N] = x[i]
-hot(i, N) = [ifelse(j == i, 1.0, 0.0) for j = 1:N]
+hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
-N = 2
+N = 6
 M = 1
 
-α = 0.25
+α = 0.75
 lim = 0.1
 pieces = Piece{_PT,Matrix{Float64},Vector{Float64}}[]
 
@@ -65,7 +66,7 @@ for cases in Iterators.product([(-1, 0, 1) for i = 1:N]...)
         end
     end
     if all(iszero, cases)
-        display(afs)
+        # display(afs)
         display(A)
         display(b)
         display(eigvals(A))
@@ -74,6 +75,7 @@ for cases in Iterators.product([(-1, 0, 1) for i = 1:N]...)
     push!(pieces, Piece(pf_dom, 1, A, b, 1))        
 end
 
+display(length(pieces))
 sys = System(pieces)
 
 function next_state(sys, x)
@@ -88,7 +90,7 @@ end
 fig = figure(0, figsize=(10, 5))
 ax = fig.add_subplot()
 
-nstep = 30
+nstep = 15
 ax.set_xlim((0, nstep))
 ax.set_xlabel("time")
 
@@ -96,20 +98,60 @@ ax.set_ylim(-1, 1)
 ax.plot((0, nstep), (0, 0), c="k")
 ax.set_ylabel("x")
 
-for s = 1:length(colors)
+xinit = 0.1
+Nd = N ÷ 2
+x_list = Vector{Float64}[]
+for sets in combinations(1:N, N - Nd)
+    x = fill(float(xinit), N)
+    for i in sets
+        x[i] = -xinit
+    end
+    if N == 2*Nd
+        push!(x_list, x)
+    else
+        for i in sets
+            y = copy(x)
+            y[i] = 0
+            push!(x_list, y)
+        end
+    end
+end
+mlist_init = [x_list]
+display(x_list)
+display(length(x_list))
+
+for (s, x) in enumerate(x_list)
     c = colors[mod(s - 1, length(colors)) + 1]
-    x = rand(N)
-    x = x .- sum(x)/N
-    x_list = [x]
+    @assert abs(sum(x)) < 1e-8
+    x_traj = [x]
     for t = 1:nstep
         x = next_state(sys, x)
         isnothing(x) && error("x is nothing")
         noise = rand(N)
-        x = x + (noise .- sum(noise)/N)*0.01
-        push!(x_list, x)
+        x = x + (noise .- sum(noise)/N)*0.0
+        push!(x_traj, x)
     end
     for i = 1:N
-        ax.plot(0:nstep, getindex.(x_list, i), marker=".", ms=10, c=c, lw=2)
+        ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+    end
+end
+
+for s = 1:100
+    c = colors[mod(s - 1, length(colors)) + 1]
+    x = rand(N)
+    x = x .- sum(x)/N
+    x = x/norm(x, Inf)*xinit
+    @assert abs(sum(x)) < 1e-8
+    x_traj = [x]
+    for t = 1:nstep
+        x = next_state(sys, x)
+        isnothing(x) && error("x is nothing")
+        noise = rand(N)
+        x = x + (noise .- sum(noise)/N)*0.0
+        push!(x_traj, x)
+    end
+    for i = 1:N
+        ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
     end
 end
 
@@ -117,7 +159,7 @@ end
 
 mpf_inv = MultiPolyFunc([PolyFunc(_AT[])])
 
-xsafe = 0.5
+xsafe = 0.2
 afs = _AT[]
 for i = 1:N
     push!(afs, AffForm(+hot(i, N), -xsafe))
@@ -128,12 +170,7 @@ mpf_safe = MultiPolyFunc([PolyFunc(afs)])
 ax.plot((0, nstep), (+xsafe, +xsafe), c="k")
 ax.plot((0, nstep), (-xsafe, -xsafe), c="k")
 
-xinit = 0.25
-x_list = Vector{Float64}[]
-for xt in Iterators.product([(-1, 1) for i = 1:N]...)
-    push!(x_list, xinit*collect(xt))
-end
-mlist_init = [x_list]
+# error("Stop here please")
 
 ϵ = lim/5
 δ = 1e-8
@@ -145,5 +182,11 @@ status, mpf, wit = CPB.learn_lyapunov!(
 )
 
 display(status)
+display(wit.mlist_inside)
+display(wit.mlist_image)
+display(wit.mlist_unknown)
+display(wit.mlist_outside)
+
+display(next_state(sys, wit.mlist_outside[1][1]))
 
 end # module
