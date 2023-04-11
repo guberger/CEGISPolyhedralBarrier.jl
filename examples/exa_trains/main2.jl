@@ -41,8 +41,9 @@ hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 N = 5
 M = 1
 
-α = 0.75
-lim = 0.1
+α = 0.5
+lim_up = +0.02
+lim_lo = -0.02
 pieces = Piece{_PT,Matrix{Float64},Vector{Float64}}[]
 
 for cases in Iterators.product([(-1, 0, 1) for i = 1:N]...)
@@ -50,31 +51,29 @@ for cases in Iterators.product([(-1, 0, 1) for i = 1:N]...)
     # afs = _AT[]
     A = Matrix{Float64}(I, N, N)
     b = zeros(N)
-    for (i, case) in enumerate(cases)
-        iprev = mod(i - 1, N) + 1
-        inext = mod(i - 0, N) + 1
-        if case == -1 # xnext - xprev ≤ -lim --> -lim*α
-            push!(afs, AffForm(+diff(iprev, inext, N), +lim))
-            b[iprev] -= lim*α
-            b[inext] += lim*α
-        elseif case == 1 # xnext - xprev ≥ lim --> +lim*α
-            push!(afs, AffForm(-diff(iprev, inext, N), +lim))
-            b[iprev] += lim*α
-            b[inext] -= lim*α
-        else # -lim ≤ xnext - xprev ≤ lim --> +(xnext - xprev)*α
-            push!(afs, AffForm(-diff(iprev, inext, N), -lim))
-            push!(afs, AffForm(+diff(iprev, inext, N), -lim))
-            A[iprev, iprev] -= α
-            A[iprev, inext] += α
-            A[inext, iprev] += α
-            A[inext, inext] -= α
+    for (i, case) in enumerate(cases) # dvcurr = vnext - vcurr
+        icurr = mod(i - 1, N) + 1
+        iprev = mod(i - 2, N) + 1
+        if case == -1 # dvcurr ≥ lim_up/α --> vcurr += lim_up
+            push!(afs, AffForm(-hot(icurr, N), +lim_up/α))
+            b[icurr] -= lim_up
+            b[iprev] += lim_up
+        elseif case == 1 # dvcurr ≤ lim_lo/α --> vcurr += lim_lo
+            push!(afs, AffForm(+hot(icurr, N), -lim_lo/α))
+            b[icurr] -= lim_lo
+            b[iprev] += lim_lo
+        else # lim_lo/α ≤ dvcurr ≤ lim_up/α --> vcurr += dvcurr*α
+            push!(afs, AffForm(-hot(icurr, N), +lim_lo/α))
+            push!(afs, AffForm(+hot(icurr, N), -lim_up/α))
+            A[icurr, icurr] -= α
+            A[iprev, icurr] += α
         end
     end
     if all(iszero, cases)
         # display(afs)
         display(A)
         display(b)
-        display(eigvals(A))
+        display(abs.(eigvals(A)))
     end
     pf_dom = PolyFunc(afs)
     push!(pieces, Piece(pf_dom, 1, A, b, 1))        
@@ -103,7 +102,7 @@ ax.set_ylim(-0.3, 0.3)
 ax.plot((0, nstep), (0, 0), c="k")
 ax.set_ylabel("x")
 
-xinit = 0.25
+xinit = 0.1
 Nd = N ÷ 2
 x_list = Vector{Float64}[]
 for sets in combinations(1:N, N - Nd)
@@ -137,13 +136,13 @@ for (s, x) in enumerate(x_list)
         push!(x_traj, x)
     end
     for i = 1:N
-        # ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+        ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
     end
 end
 
-xsample = 0.3
+xsample = 0.1
 
-for s = 1:1
+for s = 1:100
     c = colors[mod(s - 1, length(colors)) + 1]
     x = rand(N)
     x = x .- sum(x)/N
@@ -159,14 +158,19 @@ for s = 1:1
     end
     for i = 1:N
         ax.plot(0:nstep, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+        # for (t, x) in enumerate(x_traj)
+        #     print("(", t - 1, ",", x_traj[t][i], ")")
+        # end
+        # print("(NaN,NaN)")
     end
+    # println()
 end
 
 # ------------------------------------------------------------------------------
 
 mpf_inv = MultiPolyFunc([PolyFunc(_AT[])])
 
-xsafe = 0.2
+xsafe = 0.15
 afs = _AT[]
 for i = 1:N
     push!(afs, AffForm(+hot(i, N), -xsafe))
@@ -179,9 +183,9 @@ ax.plot((0, nstep), (-xsafe, -xsafe), c="k")
 
 # error("Stop here please")
 
-ϵ = lim/10
+ϵ = xsafe*α/5
 δ = 1e-8
-iter_max = Inf*-1
+iter_max = Inf
 
 status, mpf, wit = CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
