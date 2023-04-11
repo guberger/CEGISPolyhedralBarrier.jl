@@ -28,7 +28,7 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-include("./problem_speed.jl")
+include("./problem_distance.jl")
 
 function next_state(sys, x)
     for piece in sys.pieces
@@ -38,36 +38,42 @@ function next_state(sys, x)
     return nothing
 end
 
-Nt = 5
+Nt = 3
 α = 0.5
-Tstab = 12
+xmin = -0.2
 lim_up = +0.02
 lim_lo = -0.02
 vinit = 0.1
-vsafes = [0.3, 0.05]
+xsafe_lo = -1.0
+xsafe_up = +1.0
+vsafe = 0.3
 
-N, M, sys, mlist_init, mpf_inv, mpf_safe =
-    build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
+N, M, sys, mlist_init, mpf_inv, mpf_safe = build_problem(
+    Nt, α, xmin, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
+)
 
 # simulation
+xsample = 0.0
 vsample = 0.1
 nsample = 0
 
 fig = figure(0, figsize=(10, 5))
-ax = fig.add_subplot()
+axx = fig.add_subplot()
+axv = axx.twinx()
 
-nstep = 15
-ax.set_xlim((0, nstep))
-ax.set_xlabel("time")
+nstep = 30
+axx.set_xlim((0, nstep))
+axx.set_xlabel("time")
 
-ax.set_ylim(-0.31, 0.31)
-ax.plot((0, nstep), (0, 0), c="k")
-ax.set_ylabel("v")
+axx.plot((0, nstep), (0, 0), c="k")
+axv.plot((0, nstep), (0, 0), c="k", ls="--")
+axx.set_ylabel("x")
+axv.set_ylabel("v")
 
-for vsafe in vsafes
-    ax.plot((0, nstep), (+vsafe, +vsafe), c="r")
-    ax.plot((0, nstep), (-vsafe, -vsafe), c="r")
-end
+axx.plot((0, nstep), (xsafe_lo, xsafe_lo), c="r")
+axx.plot((0, nstep), (xsafe_up, xsafe_up), c="r")
+axv.plot((0, nstep), (+vsafe, +vsafe), c="b", ls="--")
+axv.plot((0, nstep), (-vsafe, -vsafe), c="b", ls="--")
 
 for (s, x) in enumerate(mlist_init[1])
     @assert abs(sum(x)) < 1e-8
@@ -82,8 +88,11 @@ end
 for s = 1:nsample
     xt = rand(Nt)
     xt = xt .- sum(xt)/Nt
-    xt = xt/norm(xt, Inf)*vsample
-    x = [xt; 0.0]
+    xt = xt/norm(xt, Inf)*xsample
+    vt = rand(Nt)
+    vt = vt .- sum(vt)/Nt
+    vt = vt/norm(vt, Inf)*vsample
+    x = [xt; vt]
     @assert abs(sum(x)) < 1e-8
     x_traj = [x]
     for t = 1:nstep
@@ -91,37 +100,50 @@ for s = 1:nsample
         isnothing(x) && error("x is nothing")
         push!(x_traj, x)
     end
+    for i = 1:Nt
+        c = colors[mod(i - 1, length(colors)) + 1]
+        times = 0:nstep
+        axx.plot(times, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+        axv.plot(times, getindex.(x_traj, Nt + i), marker="d", ms=10, c=c, lw=2)
+    end
 end
 
-f = open(string(@__DIR__, "/traj_speed_", Nt, ".txt"), "w")
-println(f, [string("v", i, ",") for i = 1:Nt]..., "t")
+f = open(string(@__DIR__, "/traj_distance_", Nt, ".txt"), "w")
+println(
+    f, [string("x", i, ",") for i = 1:Nt]...,
+    [string("v", i, ",") for i = 1:Nt]..., "t"
+)
 x = mlist_init[1][1]
+display(x)
 @assert abs(sum(x)) < 1e-8
 x_traj = [x]
-println(f, [string(x[i], ",") for i = 1:Nt]..., "0")
+println(f, [string(x[i], ",") for i = 1:N]..., "0")
 for t = 1:nstep
     global x
     x = next_state(sys, x)
     isnothing(x) && error("x is nothing")
     push!(x_traj, x)
-    println(f, [string(x[i], ",") for i = 1:Nt]..., t)
+    println(f, [string(x[i], ",") for i = 1:N]..., t)
 end
 close(f)
 for i = 1:Nt
     c = colors[mod(i - 1, length(colors)) + 1]
     times = 0:nstep
-    ax.plot(times, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+    axx.plot(times, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
+    axv.plot(times, getindex.(x_traj, Nt + i), marker="d", ms=10, c=c, lw=2)
 end
 
 # Solve !!!
-ϵ = vsafes[2]*α/5
+
+ϵ = vsafe*α/5
 δ = 1e-8
 iter_max = Inf
-iter_max = 5
+# iter_max = 5
 
-for Nt = 1:5
-    N, M, sys, mlist_init, mpf_inv, mpf_safe =
-        build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
+for Nt = 1:3
+    N, M, sys, mlist_init, mpf_inv, mpf_safe = build_problem(
+        Nt, α, xmin, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
+    )
     println("# pieces: ", length(sys.pieces))
     println("# initial states: ", sum(length, mlist_init))
     status, mpf, wit = @time CPB.learn_lyapunov!(

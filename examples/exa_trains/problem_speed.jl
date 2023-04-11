@@ -1,7 +1,7 @@
 # hot(i, N)'*x[1:N] = x[i]
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
-function build_problem(Nt, α, Tstab, lim_lo, lim_up, xinit, xsafes)
+function build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
     N = Nt + 1
     M = 2
 
@@ -58,7 +58,7 @@ function build_problem(Nt, α, Tstab, lim_lo, lim_up, xinit, xsafes)
             # display(map(af -> (af.a..., Inf, af.β), afs))
         end
         pf_dom = PolyFunc(afs)
-        push!(pieces, Piece(pf_dom, i1, A, b, i2))        
+        push!(pieces, Piece(pf_dom, i1, A, b, i2))
     end
     sys = System(pieces)
 
@@ -66,9 +66,9 @@ function build_problem(Nt, α, Tstab, lim_lo, lim_up, xinit, xsafes)
     Nd = Nt ÷ 2
     x_list = Vector{Float64}[]
     for sets in combinations(1:Nt, Nt - Nd)
-        x = [fill(float(xinit), Nt); 0.0]
+        x = [fill(float(vinit), Nt); 0.0]
         for i in sets
-            x[i] = -xinit
+            x[i] = -vinit
         end
         if Nt == 2*Nd
             push!(x_list, x)
@@ -87,8 +87,8 @@ function build_problem(Nt, α, Tstab, lim_lo, lim_up, xinit, xsafes)
     afs_ = [_AT[] for loc = 1:M]
     for i = 1:Nt
         for loc = 1:M
-            push!(afs_[loc], AffForm(+hot(i, N), -xsafes[loc]))
-            push!(afs_[loc], AffForm(-hot(i, N), -xsafes[loc]))
+            push!(afs_[loc], AffForm(+hot(i, N), -vsafes[loc]))
+            push!(afs_[loc], AffForm(-hot(i, N), -vsafes[loc]))
         end
     end
     mpf_safe = MultiPolyFunc(PolyFunc.(afs_))
