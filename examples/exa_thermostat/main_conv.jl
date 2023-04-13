@@ -132,11 +132,15 @@ display(ϵ)
 δ = 1e-8
 iter_max = Inf
 
-status, mpf, wit = CPB.learn_lyapunov!(
+status, mpf, wit = @time CPB.learn_lyapunov!(
     sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver, do_print=true, βmax=0.0
+    M, N, solver, solver, do_print=false, βmax=0.0
 )
 
+display(wit.mlist_inside[1])
+display(wit.mlist_image[1])
+display(wit.mlist_unknown[1])
+display(wit.mlist_outside[1])
 display(status)
 
 # Illustration

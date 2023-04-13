@@ -38,9 +38,9 @@ function next_state(sys, x)
     return nothing
 end
 
-Nt = 3
-α = 0.5
-xmin = -0.2
+Nt = 5
+α = 0.1
+β = 0.5
 lim_up = +0.02
 lim_lo = -0.02
 vinit = 0.1
@@ -48,12 +48,11 @@ xsafe_lo = -1.0
 xsafe_up = +1.0
 vsafe = 0.3
 
-N, M, sys, mlist_init, mpf_inv, mpf_safe = build_problem(
-    Nt, α, xmin, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
-)
+N, M, sys, mlist_init, mpf_inv, mpf_safe =
+    build_problem(Nt, α, β, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe)
 
 # simulation
-xsample = 0.0
+xsample = 0.5
 vsample = 0.1
 nsample = 0
 
@@ -61,7 +60,7 @@ fig = figure(0, figsize=(10, 5))
 axx = fig.add_subplot()
 axv = axx.twinx()
 
-nstep = 30
+nstep = 15
 axx.set_xlim((0, nstep))
 axx.set_xlabel("time")
 
@@ -134,15 +133,14 @@ for i = 1:Nt
 end
 
 # Solve !!!
-
 ϵ = vsafe*α/5
 δ = 1e-8
 iter_max = Inf
 # iter_max = 5
 
-for Nt = 1:3
+for Nt = 1:2
     N, M, sys, mlist_init, mpf_inv, mpf_safe = build_problem(
-        Nt, α, xmin, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
+        Nt, α, β, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
     )
     println("# pieces: ", length(sys.pieces))
     println("# initial states: ", sum(length, mlist_init))

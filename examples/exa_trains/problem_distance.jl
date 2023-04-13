@@ -2,14 +2,14 @@
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
 function build_problem(
-        Nt, α, xmin, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
+        Nt, α, β, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe
     )
     N = 2*Nt
     M = 1
 
     # System
     pieces = Piece{_PT,Matrix{Float64},Vector{Float64}}[]
-    for cases in Iterators.product([(-1, 0, 1, 2) for i = 1:Nt]...)
+    for cases in Iterators.product([(-1, 0, 1) for i = 1:Nt]...)
         afs = [
             AffForm([+ones(Nt); zeros(Nt)], 0.0),
             AffForm([-ones(Nt); zeros(Nt)], 0.0),
@@ -25,33 +25,37 @@ function build_problem(
         for (i, case) in enumerate(cases) # dxcurr = xnext - xcurr
             icurr = mod(i - 1, Nt) + 1
             iprev = mod(i - 2, Nt) + 1
-            if case == -1 # dvcurr ≥ lim_up/α & xcurr ≥ xmin --> vcurr += lim_up
-                push!(afs, AffForm(-hot(Nt + icurr, N), +lim_up/α))
-                push!(afs, AffForm(-hot(icurr, N), +xmin))
+            h = α*hot(icurr, N) + β*hot(Nt + icurr, N)
+            if case == -1 # α*dxcurr + β*dvcurr ≥ lim_up --> vcurr += lim_up
+                push!(afs, AffForm(-h, +lim_up))
+                b[icurr] -= lim_up/2
                 b[Nt + icurr] -= lim_up
+                b[iprev] += lim_up/2
                 b[Nt + iprev] += lim_up
-            elseif case == 1 # dvcurr ≤ lim_lo/α & xcurr ≥ xmin --> vcurr += lim_lo
-                push!(afs, AffForm(+hot(Nt + icurr, N), -lim_lo/α))
-                push!(afs, AffForm(-hot(icurr, N), +xmin))
+            elseif case == 1 # α*dxcurr + β*dvcurr ≤ lim_lo --> vcurr += lim_lo
+                push!(afs, AffForm(+h, -lim_lo))
+                b[icurr] -= lim_lo/2
                 b[Nt + icurr] -= lim_lo
+                b[iprev] += lim_lo/2
                 b[Nt + iprev] += lim_lo
-            elseif case == 2 # xcurr ≤ xmin
-                push!(afs, AffForm(+hot(icurr, N), -xmin))
-                b[Nt + icurr] -= lim_lo
-                b[Nt + iprev] += lim_lo
-            else # lim_lo/α ≤ dvcurr ≤ lim_up/α & xcurr ≥ xmin --> vcurr += dvcurr*α
-                push!(afs, AffForm(-hot(Nt + icurr, N), +lim_lo/α))
-                push!(afs, AffForm(+hot(Nt + icurr, N), -lim_up/α))
-                push!(afs, AffForm(-hot(icurr, N), +xmin))
-                A[Nt + icurr, Nt + icurr] -= α
-                A[Nt + iprev, Nt + icurr] += α
+            else # lim_lo ≤ α*dxcurr + β*dvcurr ≤ lim_up --> vcurr += α*dxcurr + β*dvcurr
+                push!(afs, AffForm(-h, +lim_lo))
+                push!(afs, AffForm(+h, -lim_up))
+                A[icurr, icurr] -= α/2
+                A[icurr, Nt + icurr] -= β/2
+                A[Nt + icurr, icurr] -= α
+                A[Nt + icurr, Nt + icurr] -= β
+                A[iprev, icurr] += α/2
+                A[iprev, Nt + icurr] += β/2
+                A[Nt + iprev, icurr] += α
+                A[Nt + iprev, Nt + icurr] += β
             end
         end
         if all(iszero, cases)
             # display(afs)
-            # display([A b])
-            # display(abs.(eigvals(A)))
-            # display(map(af -> (af.a..., Inf, af.β), afs))
+            display([A b])
+            display(abs.(eigvals(A)))
+            display(map(af -> (af.a..., NaN, af.β), afs))
         end
         pf_dom = PolyFunc(afs)
         push!(pieces, Piece(pf_dom, 1, A, b, 1))
