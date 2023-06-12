@@ -13,13 +13,16 @@ PolyFunc = CPB.PolyFunc
 MultiPolyFunc = CPB.MultiPolyFunc
 Piece = CPB.Piece
 System = CPB.System
+VerifierSafeProblem = CPB.VerifierSafeProblem
+VerifierBFProblem = CPB.VerifierBFProblem
+empty_pf = CPB.empty_pf
+empty_mpf = CPB.empty_mpf
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
 ))
 
 xmax = 1e3
-η = -0.1
 
 # Set #1
 N = 1
@@ -29,13 +32,12 @@ b = [1.0]
 piece = Piece(pf_dom, 1, A, b, 1)
 sys = System([piece])
 
-mpf_inv = MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])])
+prob = VerifierSafeProblem(N, sys,
+                           empty_mpf(1),
+                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
+                           MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
 
-mpf_BF = MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])])
-
-mpf_safe = MultiPolyFunc([PolyFunc(AffForm{Vector{Int},Int}[])])
-
-x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify safe: empty" begin
     @test r == -Inf
@@ -43,9 +45,12 @@ x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
     @test loc == 0
 end
 
-mpf_safe = MultiPolyFunc([PolyFunc([AffForm([1.0], -0.25)])])
+prob = VerifierSafeProblem(N, sys,
+                           MultiPolyFunc([PolyFunc([AffForm([1.0], -0.25)])]),
+                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
+                           MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
 
-x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify safe: infeasible" begin
     @test r ≈ -0.125
@@ -53,9 +58,12 @@ x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
     @test loc == 1
 end
 
-mpf_safe = MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])])
+prob = VerifierSafeProblem(N, sys,
+                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
+                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
+                           MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
 
-x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify safe: unsafe" begin
     @test r ≈ 0.25
@@ -63,11 +71,16 @@ x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
     @test loc == 1
 end
 
-x, r, loc = CPB.verify_BF(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+prob = VerifierBFProblem(N, sys,
+                         MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
+                         MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
+                         MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
+
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify BF: satisfied" begin
-    @test r ≈ -2*η/3 - 0.5
-    @test x ≈ [-2*η/3]
+    @test r ≈ -0.5
+    @test norm(x) < 1e-6
     @test loc == 1
 end
 
@@ -78,22 +91,14 @@ A = [0.0 1.0; -1.0 0.0]
 b = [0.0, 0.0]
 sys = System([Piece(pf_dom, 1, A, b, 2)])
 
-mpf_inv = MultiPolyFunc([
-    PolyFunc([AffForm([0.0, 1.0], -1.0)]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
+prob = VerifierSafeProblem(
+    N, sys,
+    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]), empty_pf()]),
+    MultiPolyFunc([PolyFunc([AffForm([0.0, 1.0], -1.0)]), empty_pf()]),
+    MultiPolyFunc([PolyFunc([AffForm([1.0, 0.0], -1.0)]), empty_pf()])
+)
 
-mpf_BF = MultiPolyFunc([
-    PolyFunc([AffForm([1.0, 0.0], -1.0)]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
-
-mpf_safe = MultiPolyFunc([
-    PolyFunc([AffForm([0.0, -1.0], -1.0)]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
-
-x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify safe: empty" begin
     @test r == -Inf
@@ -101,7 +106,14 @@ x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
     @test loc == 0
 end
 
-x, r, loc = CPB.verify_BF(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+prob = VerifierBFProblem(
+    N, sys,
+    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]), empty_pf()]),
+    MultiPolyFunc([PolyFunc([AffForm([0.0, 1.0], -1.0)]), empty_pf()]),
+    MultiPolyFunc([PolyFunc([AffForm([1.0, 0.0], -1.0)]), empty_pf()])
+)
+
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify BF: empty" begin
     @test r == -Inf
@@ -109,15 +121,17 @@ x, r, loc = CPB.verify_BF(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
     @test loc == 0
 end
 
-mpf_BF = MultiPolyFunc([
-    PolyFunc(AffForm{Vector{Float64},Float64}[]),
-    PolyFunc([AffForm([1.0, 0.0], -1.0)])
-])
+prob = VerifierBFProblem(
+    N, sys,
+    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]), empty_pf()]),
+    MultiPolyFunc([PolyFunc([AffForm([0.0, 1.0], -1.0)]), empty_pf()]),
+    MultiPolyFunc([empty_pf(), PolyFunc([AffForm([1.0, 0.0], -1.0)])])
+)
 
-x, r, loc = CPB.verify_BF(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify BF: unsatisfied" begin
-    @test r ≈ -η
+    @test abs(r) < 1e-6
     @test x[2] ≈ 1
     @test loc == 1
 end
@@ -132,26 +146,19 @@ b = [0.0, -1.0]
 piece2 = Piece(pf_dom, 1, A, b, 2)
 sys = System([piece1, piece2])
 
-mpf_inv = MultiPolyFunc([
-    PolyFunc([AffForm([1.0, 0.0], -2.0)]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
+prob = VerifierSafeProblem(
+    N, sys,
+    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]),
+                   PolyFunc([AffForm([0.0, -1.0], -1.0)])]),
+    MultiPolyFunc([PolyFunc([AffForm([1.0, 0.0], -2.0)]), empty_pf()]),
+    empty_mpf(2)
+)
 
-mpf_BF = MultiPolyFunc([
-    PolyFunc(AffForm{Vector{Float64},Float64}[]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
-
-mpf_safe = MultiPolyFunc([
-    PolyFunc([AffForm([0.0, -1.0], -1.0)]),
-    PolyFunc([AffForm([0.0, -1.0], -1.0)])
-])
-
-x, r, loc = CPB.verify_safe(sys, mpf_safe, mpf_inv, mpf_BF, xmax, η, N, solver)
+x, r, loc = CPB.find_counterexample(prob, xmax, solver)
 
 @testset "verify safe: unsafe" begin
     @test r ≈ xmax + 1
-    @test x[1] ≈ 1 + η
+    @test x[1] ≈ 1
     @test loc == 1
 end
 
