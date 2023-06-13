@@ -1,6 +1,8 @@
 struct GeneratorProblem
     N::Int
     mpf::Vector{PolyFunc}
+    mpf_new::Vector{PolyFunc}
+    mreset::Vector{Bool}
     mgrid_inside::Vector{Grid}
     mgrid_image::Vector{Grid}
     graph_unknown::Graph
@@ -12,6 +14,8 @@ struct GeneratorProblem
 end
 
 function update_generator!(prob::GeneratorProblem, βmax, solver)
+    fill!(prob.mreset, false)
+    foreach(pf -> empty!(pf.afs), prob.mpf_new)
     while !isempty(prob.graph_outside_new.links) ||
           !isempty(prob.graph_unknown_new.links)
         while !isempty(prob.graph_outside_new.links)
@@ -27,6 +31,9 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
                 return false
             else
                 push!(prob.mpf[link.loc_pre].afs, af)
+                if !prob.mreset[link.loc_pre]
+                    push!(prob.mpf_new[link.loc_pre].afs, af)
+                end
                 push!(prob.graph_outside.links, link)
             end
         end
@@ -44,6 +51,8 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
                 push!(prob.mgrid_image[link.loc_post].points, link.point_post)
                 empty!(prob.mpf[link.loc_pre].afs)
                 empty!(prob.mpf[link.loc_post].afs)
+                prob.mreset[link.loc_pre] = true
+                prob.mreset[link.loc_post] = true
                 empty!(prob.graph_temp.links)
                 while !isempty(prob.graph_outside.links)
                     link2 = pop!(prob.graph_outside.links)
@@ -73,6 +82,9 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
                 break # starts with outside first
             else
                 push!(prob.mpf[link.loc_pre].afs, af)
+                if !prob.mreset[link.loc_pre]
+                    push!(prob.mpf_new[link.loc_pre].afs, af)
+                end
                 push!(prob.graph_unknown.links, link)
             end
         end

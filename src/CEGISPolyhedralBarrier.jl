@@ -15,7 +15,6 @@ isless_approx(af::AffForm, point, atol, rtol) =
 struct PolyFunc
     afs::Vector{AffForm}
 end
-Base.empty!(pf::PolyFunc) = empty!(pf.afs)
 isless_approx(pf::PolyFunc, point, atol, rtol) =
     all(af -> isless_approx(af, point, atol, rtol), pf.afs)
 empty_pf() = PolyFunc(AffForm[])
