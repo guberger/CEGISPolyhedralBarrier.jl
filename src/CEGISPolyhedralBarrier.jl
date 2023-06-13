@@ -24,10 +24,6 @@ struct Piece
     loc_dst::Int
 end
 
-struct System
-    pieces::Vector{Piece}
-end
-
 struct State
     loc::Int
     x::Vector{Float64}
@@ -40,8 +36,8 @@ end
 
 include("separator.jl")
 include("generator.jl")
-# include("crosser.jl")
-# include("verifier.jl")
+include("crosser.jl")
+include("verifier.jl")
 # include("learner.jl")
 
 end # module

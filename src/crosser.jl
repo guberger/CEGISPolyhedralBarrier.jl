@@ -10,12 +10,12 @@ end
 
 function _optimize_check_counterexample!(model)
     optimize!(model)
-    flag = primal_status(model) == FEASIBLE_POINT &&
-           dual_status(model) == FEASIBLE_POINT &&
-           termination_status(model) == OPTIMAL
-    @assert flag || (primal_status(model) == NO_SOLUTION &&
-                     termination_status(model) == INFEASIBLE)
-    return flag
+    isfeasible = primal_status(model) == FEASIBLE_POINT &&
+                 dual_status(model) == FEASIBLE_POINT &&
+                 termination_status(model) == OPTIMAL
+    @assert isfeasible || (primal_status(model) == NO_SOLUTION &&
+                           termination_status(model) == INFEASIBLE)
+    return isfeasible
 end
 
 function find_crosser(prob::CrossingProblem, xmax, solver)
@@ -39,10 +39,10 @@ function find_crosser(prob::CrossingProblem, xmax, solver)
 
     @objective(model, Max, r)
 
-    flag = _optimize_check_counterexample!(model)
+    isfeasible = _optimize_check_counterexample!(model)
 
-    xopt = flag ? value.(x) : fill(NaN, prob.N)
-    ropt = flag ? value(r) : -Inf
+    xopt = isfeasible ? value.(x) : fill(NaN, prob.N)
+    ropt = isfeasible ? value(r) : -Inf
 
-    return xopt, ropt, flag
+    return xopt, ropt, isfeasible
 end

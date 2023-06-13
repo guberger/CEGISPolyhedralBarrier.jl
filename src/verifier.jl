@@ -1,123 +1,99 @@
-struct CrossingProblem
+struct CexKey
+    q::Int # piece
+    i::Int # gf_bf
+end
+
+struct CexVal
+    state::State
+    r::Float64
+end
+
+struct VerifierProblem
     N::Int
+    pieces::Vector{Piece}
+    gfs_bf::Vector{GenForm}
+    gfs_safe::Vector{GenForm}
+    gfs_inv::Vector{GenForm}
+    cexs::Dict{CexKey,CexVal}
+    keys_todo::Vector{CexKey}
     afs_inside::Vector{AffForm}
     afs_inside_margin::Vector{AffForm}
     afs_outside::Vector{AffForm}
     afs_outside_margin::Vector{AffForm}
 end
-empty_cross_problem(N) = CrossingProblem(N, ntuple(i -> AffForm[], Val(4))...)
 
-function _optimize_check_counterexample!(model)
-    optimize!(model)
-    flag = primal_status(model) == FEASIBLE_POINT &&
-           dual_status(model) == FEASIBLE_POINT &&
-           termination_status(model) == OPTIMAL
-    @assert flag || (primal_status(model) == NO_SOLUTION &&
-                     termination_status(model) == INFEASIBLE)
-    return flag
+function add_infeasible_keys!(prob::VerifierProblem, gfs)
+    for (key, val) in prob.cexs
+        state = val.state
+        for gf in gfs
+            if state.loc == gf.loc && _eval(gf.af, state.x) > 0
+                push!(prob.keys_todo, key)
+                break
+            end
+        end
+    end
 end
 
-function find_crosser(prob::CrossingProblem, A, b, xmax, solver)
-    model = solver()
-    x = @variable(model, [1:prob.N], lower_bound=-xmax, upper_bound=xmax)
-    r = @variable(model, upper_bound=10*xmax)
-
-    for af in prob.afs_inside
-        @constraint(model, _eval(af, x) ≤ 0)
+function add_gfs_keys!(prob::VerifierProblem, gfs, indices)
+    for (q, piece) in enumerate(prob.pieces)
+        for i in indices
+            if piece.loc_dst == gfs[i].loc
+                push!(prob.keys_todo, CexKey(q, i))
+            end
+        end
     end
-    for af in prob.afs_inside_margin
-        @constraint(model, _eval(af, x) + margin(af, 0, r) ≤ 0)
-    end
-    for af in prob.afs_outside
-        @constraint(model, _eval(af, A*x + b) ≥ 0)
-    end
-    for af in prob.afs_outside_margin
-        @constraint(model, _eval(af, A*x + b) ≥ margin(af, 0, r))
-    end
-
-    @objective(model, Max, r)
-
-    flag = _optimize_check_counterexample!(model)
-
-    xopt = flag ? value.(x) : fill(NaN, N)
-    ropt = flag ? value(r) : -Inf
-
-    return xopt, ropt, flag
 end
 
-function _reset_crossing_problem!(prob)
+function prepare_crossing_problem!(prob, piece)
     empty!(prob.afs_inside)
+    for gf in prob.gfs_inv
+        if gf.loc == piece.loc_src
+            push!(prob.afs_inside, gf.af)
+        end
+    end
+    for af in piece.afs_dom
+        push!(prob.afs_inside, af)
+    end
     empty!(prob.afs_inside_margin)
+    for gf in prob.gfs_safe
+        if gf.loc == piece.loc_src
+            push!(prob.afs_inside_margin, gf.af)
+        end
+    end
+    for gf in prob.gfs_bf
+        if gf.loc == piece.loc_src
+            push!(prob.afs_inside_margin, gf.af)
+        end
+    end
     empty!(prob.afs_outside)
     empty!(prob.afs_outside_margin)
+    return CrossingProblem(prob.N, piece.A, piece.b,
+                           prob.afs_inside, prob.afs_inside_margin,
+                           prob.afs_outside, prob.afs_outside_margin)
 end
 
-struct VerifierSafeProblem
-    N::Int
-    sys::System
-    mpf_safe::MultiPolyFunc
-    mpf_inv::MultiPolyFunc
-    mpf_BF::MultiPolyFunc
-end
-
-function find_counterexample(prob::VerifierSafeProblem, xmax, solver)
-    cross_prob = empty_cross_problem(prob.N)
-    xopt::Vector{Float64} = fill(NaN, prob.N)
-    ropt::Float64 = -Inf
-    locopt::Int = 0
-    for piece in prob.sys.pieces
-        pf_dom, A, b = piece.pf_dom, piece.A, piece.b
-        _reset_crossing_problem!(cross_prob)
-        append!(cross_prob.afs_inside, pf_dom.afs)
-        append!(cross_prob.afs_inside, prob.mpf_inv.pfs[piece.loc1].afs)
-        append!(cross_prob.afs_inside_margin, prob.mpf_safe.pfs[piece.loc1].afs)
-        append!(cross_prob.afs_inside_margin, prob.mpf_BF.pfs[piece.loc1].afs)
-        for af in prob.mpf_safe.pfs[piece.loc2].afs
-            empty!(cross_prob.afs_outside)
-            push!(cross_prob.afs_outside, af)
-            x, r, flag = find_crosser(cross_prob, A, b, xmax, solver
-            )
-            if flag && r > ropt
-                xopt = x
-                ropt = r
-                locopt = piece.loc1
-            end
+function update_cexs_safe!(prob::VerifierProblem, xmax, solver)
+    for key in prob.keys_todo
+        piece, gf_out = prob.pieces[key.q], prob.gfs_safe[key.i]
+        @assert piece.loc_dst == gf_out.loc
+        cross_prob = prepare_crossing_problem!(prob, piece)
+        push!(cross_prob.afs_outside, gf_out.af)
+        x, r, isfeasible = find_crosser(cross_prob, xmax, solver)
+        if isfeasible
+            prob.cexs[key] = CexVal(State(piece.loc_src, x), r)
         end
     end
-    return xopt, ropt, locopt
 end
 
-struct VerifierBFProblem
-    N::Int
-    sys::System
-    mpf_safe::MultiPolyFunc
-    mpf_inv::MultiPolyFunc
-    mpf_BF::MultiPolyFunc
-end
-
-function find_counterexample(prob::VerifierBFProblem, xmax, solver)
-    cross_prob = empty_cross_problem(prob.N)
-    xopt::Vector{Float64} = fill(NaN, prob.N)
-    ropt::Float64 = -Inf
-    locopt::Int = 0
-    for piece in prob.sys.pieces
-        pf_dom, A, b = piece.pf_dom, piece.A, piece.b
-        _reset_crossing_problem!(cross_prob)
-        append!(cross_prob.afs_inside, pf_dom.afs)
-        append!(cross_prob.afs_inside, prob.mpf_inv.pfs[piece.loc1].afs)
-        append!(cross_prob.afs_inside_margin, prob.mpf_safe.pfs[piece.loc1].afs)
-        append!(cross_prob.afs_inside_margin, prob.mpf_BF.pfs[piece.loc1].afs)
-        for af in prob.mpf_BF.pfs[piece.loc2].afs
-            empty!(cross_prob.afs_outside_margin)
-            push!(cross_prob.afs_outside_margin, af)
-            x, r, flag = find_crosser(cross_prob, A, b, xmax, solver
-            )
-            if flag && r > ropt
-                xopt = x
-                ropt = r
-                locopt = piece.loc1
-            end
+function update_cexs_cont!(prob::VerifierProblem, xmax, solver)
+    for key in prob.keys_todo
+        piece, gf_out = prob.pieces[key.q], prob.gfs_bf[key.i]
+        @assert piece.loc_dst == gf_out.loc
+        cross_prob = prepare_crossing_problem!(prob, piece)
+        push!(cross_prob.afs_outside_margin, gf_out.af)
+        x, r, isfeasible = find_crosser(cross_prob, xmax, solver)
+        if isfeasible
+            prob.cexs[key] = CexVal(State(piece.loc_src, x), r)
         end
     end
-    return xopt, ropt, locopt
 end

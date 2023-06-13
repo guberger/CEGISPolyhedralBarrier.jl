@@ -9,14 +9,12 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 AffForm = CPB.AffForm
-PolyFunc = CPB.PolyFunc
-MultiPolyFunc = CPB.MultiPolyFunc
+GenForm = CPB.GenForm
+State = CPB.State
 Piece = CPB.Piece
-System = CPB.System
-VerifierSafeProblem = CPB.VerifierSafeProblem
-VerifierBFProblem = CPB.VerifierBFProblem
-empty_pf = CPB.empty_pf
-empty_mpf = CPB.empty_mpf
+VerifierProblem = CPB.VerifierProblem
+CexKey = CPB.CexKey
+CexVal = CPB.CexVal
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
@@ -24,142 +22,233 @@ solver() = Model(optimizer_with_attributes(
 
 xmax = 1e3
 
-# Set #1
+################################################################################
+## Set #1
+
 N = 1
-pf_dom = PolyFunc([AffForm([-1.0], 0.0)])
-A = [0.5;;]
-b = [1.0]
-piece = Piece(pf_dom, 1, A, b, 1)
-sys = System([piece])
+pieces = [Piece([AffForm([-1.0], 0.0)], 1, [0.5;;], [1.0], 1)]
 
-prob = VerifierSafeProblem(N, sys,
-                           empty_mpf(1),
-                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
-                           MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    GenForm[], # gfs_safe
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
+)
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
+CPB.update_cexs_safe!(prob, xmax, solver)
 
 @testset "verify safe: empty" begin
-    @test r == -Inf
-    @test all(isnan, x)
-    @test loc == 0
+    @test isempty(prob.keys_todo)
+    @test isempty(prob.cexs)
 end
 
-prob = VerifierSafeProblem(N, sys,
-                           MultiPolyFunc([PolyFunc([AffForm([1.0], -0.25)])]),
-                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
-                           MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    [GenForm(1, AffForm([1.0], -0.25))], # gfs_safe
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
+)
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
+CPB.update_cexs_safe!(prob, xmax, solver)
 
-@testset "verify safe: infeasible" begin
-    @test r ≈ -0.125
-    @test x ≈ [0.375]
-    @test loc == 1
+@testset "verify safe: r neg" begin
+    @test length(prob.keys_todo) == 1
+    @test length(prob.cexs) == 1
+    @test prob.cexs[CexKey(1, 1)].state.loc == 1
+    @test prob.cexs[CexKey(1, 1)].state.x ≈ [0.375]
+    @test prob.cexs[CexKey(1, 1)].r ≈ -0.125
 end
 
-prob = VerifierSafeProblem(N, sys,
-                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
-                           MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
-                           MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
+)
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
+CPB.update_cexs_safe!(prob, xmax, solver)
 
-@testset "verify safe: unsafe" begin
-    @test r ≈ 0.25
-    @test x ≈ [0.75]
-    @test loc == 1
+@testset "verify safe: r pos" begin
+    @test length(prob.keys_todo) == 1
+    @test length(prob.cexs) == 1
+    @test prob.cexs[CexKey(1, 1)].state.loc == 1
+    @test prob.cexs[CexKey(1, 1)].state.x ≈ [0.75]
+    @test prob.cexs[CexKey(1, 1)].r ≈ 0.25
 end
 
-prob = VerifierBFProblem(N, sys,
-                         MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
-                         MultiPolyFunc([PolyFunc([AffForm([1.0], -1.0)])]),
-                         MultiPolyFunc([PolyFunc([AffForm([-0.5], 0.25)])]))
+empty!(prob.keys_todo)
+prob.cexs[CexKey(1, 1)].state.x[1] = -5.0
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.update_cexs_safe!(prob, xmax, solver)
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
-
-@testset "verify BF: satisfied" begin
-    @test r ≈ -0.5
-    @test norm(x) < 1e-6
-    @test loc == 1
+@testset "verify safe: add infeasible" begin
+    @test length(prob.keys_todo) == 1
+    @test length(prob.cexs) == 1
+    @test prob.cexs[CexKey(1, 1)].state.loc == 1
+    @test prob.cexs[CexKey(1, 1)].state.x ≈ [0.75]
+    @test prob.cexs[CexKey(1, 1)].r ≈ 0.25
 end
 
-# Set #2
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
+)
+
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_bf, eachindex(prob.gfs_bf))
+CPB.update_cexs_cont!(prob, xmax, solver)
+
+@testset "verify cont: r neg" begin
+    @test length(prob.keys_todo) == 1
+    @test length(prob.cexs) == 1
+    @test prob.cexs[CexKey(1, 1)].state.loc == 1
+    @test norm(prob.cexs[CexKey(1, 1)].state.x) < 1e-6
+    @test prob.cexs[CexKey(1, 1)].r ≈ -0.5
+end
+
+empty!(prob.keys_todo)
+prob.cexs[CexKey(1, 1)].state.x[1] = -5.0
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.update_cexs_cont!(prob, xmax, solver)
+
+@testset "verify cont: add infeasible" begin
+    @test length(prob.keys_todo) == 1
+    @test length(prob.cexs) == 1
+    @test prob.cexs[CexKey(1, 1)].state.loc == 1
+    @test norm(prob.cexs[CexKey(1, 1)].state.x) < 1e-6
+    @test prob.cexs[CexKey(1, 1)].r ≈ -0.5
+end
+
+################################################################################
+## Set 2
+
 N = 2
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], -1.0)])
-A = [0.0 1.0; -1.0 0.0]
-b = [0.0, 0.0]
-sys = System([Piece(pf_dom, 1, A, b, 2)])
+pieces = [
+    Piece([AffForm([-1.0, 0.0], -1.0)], 1, [0.0 1.0; -1.0 0.0], [0.0, 0.0], 2)
+]
 
-prob = VerifierSafeProblem(
-    N, sys,
-    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]), empty_pf()]),
-    MultiPolyFunc([PolyFunc([AffForm([0.0, 1.0], -1.0)]), empty_pf()]),
-    MultiPolyFunc([PolyFunc([AffForm([1.0, 0.0], -1.0)]), empty_pf()])
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_bf
+    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([0.0, 1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
 )
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
+CPB.update_cexs_safe!(prob, xmax, solver)
 
 @testset "verify safe: empty" begin
-    @test r == -Inf
-    @test all(isnan, x)
-    @test loc == 0
+    @test isempty(prob.keys_todo)
+    @test isempty(prob.cexs)
 end
 
-prob = VerifierBFProblem(
-    N, sys,
-    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]), empty_pf()]),
-    MultiPolyFunc([PolyFunc([AffForm([0.0, 1.0], -1.0)]), empty_pf()]),
-    MultiPolyFunc([PolyFunc([AffForm([1.0, 0.0], -1.0)]), empty_pf()])
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_bf
+    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([0.0, 1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
 )
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_bf, eachindex(prob.gfs_bf))
+CPB.update_cexs_cont!(prob, xmax, solver)
 
-@testset "verify BF: empty" begin
-    @test r == -Inf
-    @test all(isnan, x)
-    @test loc == 0
+@testset "verify cont: empty" begin
+    @test isempty(prob.keys_todo)
+    @test isempty(prob.cexs)
 end
 
-prob = VerifierBFProblem(
-    N, sys,
-    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]), empty_pf()]),
-    MultiPolyFunc([PolyFunc([AffForm([0.0, 1.0], -1.0)]), empty_pf()]),
-    MultiPolyFunc([empty_pf(), PolyFunc([AffForm([1.0, 0.0], -1.0)])])
+#-------------------------------------------------------------------------------
+prob = VerifierProblem(
+    N, pieces,
+    [GenForm(2, AffForm([1.0, 0.0], -1.0))], # gfs_bf
+    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([0.0, 1.0], -1.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
 )
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_bf, eachindex(prob.gfs_bf))
+CPB.update_cexs_cont!(prob, xmax, solver)
 
-@testset "verify BF: unsatisfied" begin
-    @test abs(r) < 1e-6
-    @test x[2] ≈ 1
-    @test loc == 1
+@testset "verify cont: r zero" begin
+    @test length(prob.keys_todo) == 1
+    @test length(prob.cexs) == 1
+    @test prob.cexs[CexKey(1, 1)].state.loc == 1
+    @test prob.cexs[CexKey(1, 1)].state.x[2] ≈ 1
+    @test abs(prob.cexs[CexKey(1, 1)].r) < 1e-6
 end
 
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], -1.0)])
-A = [0.0 1.0; -1.0 0.0]
-b = [0.0, 0.0]
-piece1 = Piece(pf_dom, 1, A, b, 2)
-pf_dom = PolyFunc([AffForm([-1.0, 0.0], -1.0)])
-A = [0.0 1.0; -1.0 0.0]
-b = [0.0, -1.0]
-piece2 = Piece(pf_dom, 1, A, b, 2)
-sys = System([piece1, piece2])
+################################################################################
+## Set 3
 
-prob = VerifierSafeProblem(
-    N, sys,
-    MultiPolyFunc([PolyFunc([AffForm([0.0, -1.0], -1.0)]),
-                   PolyFunc([AffForm([0.0, -1.0], -1.0)])]),
-    MultiPolyFunc([PolyFunc([AffForm([1.0, 0.0], -2.0)]), empty_pf()]),
-    empty_mpf(2)
+N = 2
+pieces = [
+    Piece([AffForm([-1.0, 0.0], -1.0)], 1, [0.0 1.0; -1.0 0.0], [0.0, +0.0], 2),
+    Piece([AffForm([-1.0, 0.0], -1.0)], 1, [1.0 0.0; 0.0 1.0], [0.0, -1.0], 2)
+]
+
+prob = VerifierProblem(
+    N, pieces,
+    GenForm[], # gfs_bf
+    [
+        GenForm(1, AffForm([0.0, -1.0], -1.0)),
+        GenForm(2, AffForm([0.0, -1.0], -1.0))
+    ], # gfs_safe
+    [GenForm(1, AffForm([1.0, 0.0], -2.0))], # gfs_inv
+    Dict{CexKey,CexVal}(),
+    CexKey[],
+    [AffForm[] for i = 1:4]..., # all afs_...
 )
 
-x, r, loc = CPB.find_counterexample(prob, xmax, solver)
+CPB.add_infeasible_keys!(prob, prob.gfs_bf)
+CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
+CPB.update_cexs_safe!(prob, xmax, solver)
 
-@testset "verify safe: unsafe" begin
-    @test r ≈ xmax + 1
-    @test x[1] ≈ 1
-    @test loc == 1
+@testset "verify safe: r pos" begin
+    @test length(prob.keys_todo) == 2
+    @test length(prob.cexs) == 2
+    @test prob.cexs[CexKey(1, 2)].state.loc == 1
+    @test prob.cexs[CexKey(1, 2)].state.x[1] ≈ 1
+    @test prob.cexs[CexKey(1, 2)].r ≈ xmax + 1
+    @test prob.cexs[CexKey(2, 2)].state.loc == 1
+    @test prob.cexs[CexKey(2, 2)].state.x[2] ≈ 0
+    @test prob.cexs[CexKey(2, 2)].r ≈ 1
 end
 
 nothing
