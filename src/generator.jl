@@ -38,6 +38,7 @@ end
 
 function update_generator!(prob::GeneratorProblem, βmax, solver)
     isreset = false
+    empty!(prob.indices_new)
     while !isempty(prob.states_outside_new) || !isempty(prob.links_unknown_new)
         while !isempty(prob.states_outside_new)
             state = pop!(prob.states_outside_new)
@@ -47,9 +48,7 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
                 return isreset, false
             else
                 push!(prob.gfs, GenForm(state.loc, af))
-                if !isreset
-                    push!(prob.indices_new, length(prob.gfs))
-                end
+                push!(prob.indices_new, length(prob.gfs))
                 push!(prob.states_outside, state)
             end
         end
@@ -60,6 +59,7 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
             if r < prob.ϵ
                 isreset = true
                 empty!(prob.gfs)
+                empty!(prob.indices_new)
                 push!(prob.states_inside, link.src)
                 push!(prob.states_image, link.dst)
                 append!(prob.links_unknown_new, prob.links_unknown)
@@ -69,9 +69,7 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
                 break # starts with outside first
             else
                 push!(prob.gfs, GenForm(link.src.loc, af))
-                if !isreset
-                    push!(prob.indices_new, length(prob.gfs))
-                end
+                push!(prob.indices_new, length(prob.gfs))
                 push!(prob.links_unknown, link)
             end
         end

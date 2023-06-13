@@ -52,6 +52,7 @@ isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
     @test isreset
     @test issuccess
     @test length(prob.gfs) == 3
+    @test prob.indices_new == collect(eachindex(prob.gfs))
     @test length(prob.states_inside) == 3
     @test length(prob.states_image) == 2
     @test length(prob.links_unknown) == 2
@@ -95,8 +96,51 @@ isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
 @testset "Generator: infeasible" begin
     @test isreset
     @test !issuccess
+    @test prob.indices_new == collect(eachindex(prob.gfs))
     @test length(prob.states_inside) == 3
     @test length(prob.states_image) == 2
+end
+
+################################################################################
+## Generator: no reset
+
+prob = GeneratorProblem(
+    N,
+    [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [0], # indices_new
+    State[], # states_inside
+    [State(1, [1.0])], # states_image
+    [
+        Link(State(2, [4.0]), State(1, [4.0])),
+        Link(State(1, [9.0]), State(2, [9.0])),
+        Link(State(2, [9.0]), State(1, [9.0]))
+    ], # links_unknown
+    [
+        Link(State(1, [-5.0]), State(2, [2.0]))
+    ], # links_unknown_new
+    [State(1, [1.0])], # states_outside
+    [State(1, [5.0])], # states_outside_new
+    [empty_xs() for i = 1:4]..., # all xs_...
+    ϵ
+)
+
+isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
+
+@testset "Generator: no reset" begin
+    @test !isreset
+    @test issuccess
+    @test length(prob.gfs) == 3
+    @test prob.indices_new == collect(2:length(prob.gfs))
+    @test length(prob.states_inside) == 0
+    @test length(prob.states_image) == 1
+    @test length(prob.links_unknown) == 4
+    @test length(prob.states_outside) == 2
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [-1] && gf.af.β ≈ -2), prob.gfs
+    )
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -3), prob.gfs
+    )
 end
 
 nothing
