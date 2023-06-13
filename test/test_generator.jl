@@ -9,14 +9,11 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 AffForm = CPB.AffForm
-PolyFunc = CPB.PolyFunc
-empty_pf = CPB.empty_pf
-Grid = CPB.Grid
-empty_grid = CPB.empty_grid
+GenForm = CPB.GenForm
+State = CPB.State
 Link = CPB.Link
-Graph = CPB.Graph
-empty_graph = CPB.empty_graph
 GeneratorProblem = CPB.GeneratorProblem
+empty_xs() = Vector{Float64}[]
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
@@ -31,48 +28,42 @@ N = 1
 
 prob = GeneratorProblem(
     N,
-    [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf
-    [[1000] for loc = 1:2], # msupport_new
-    [true for loc = 1:2], # mreset
-    [Grid([[0.0]]), empty_grid()], # mgrid_inside
-    [empty_grid() for loc = 1:2], # mgrid_image
-    Graph([
-        Link(2, [4.0], 1, [4.0]),
-        Link(1, [9.0], 2, [9.0]),
-        Link(2, [9.0], 1, [9.0])
-    ]), # graph_unknown
-    Graph([
-        Link(1, [1.0], 2, [2.0])
-    ]), # graph_unknown_new
-    Graph([
-        Link(1, [-4.0], 0, [NaN]),
-    ]), # graph_outside
-    empty_graph(), # graph_outside_new
-    empty_graph(), # graph_temp
+    [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [0], # indices_new
+    [State(1, [1.0])], # states_inside
+    State[], # states_image
+    [
+        Link(State(2, [4.0]), State(1, [4.0])),
+        Link(State(1, [9.0]), State(2, [9.0])),
+        Link(State(2, [9.0]), State(1, [9.0]))
+    ], # links_unknown
+    [
+        Link(State(1, [1.0]), State(2, [2.0]))
+    ], # links_unknown_new
+    [State(1, [-3.0])], # states_outside
+    State[], # states_outside_new
+    [empty_xs() for i = 1:4]..., # all xs_...
     ϵ
 )
 
-flag = CPB.update_generator!(prob, βmax, solver)
+isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
 
 @testset "Generator: feasible" begin
-    @test flag
-    @test all(prob.mreset)
-    @test length(prob.mpf[1].afs) == 2
-    @test length(prob.mpf[2].afs) == 1
-    @test length(prob.mgrid_inside[1].points) == 2
-    @test length(prob.mgrid_inside[2].points) == 1
-    @test length(prob.mgrid_image[1].points) == 1
-    @test length(prob.mgrid_image[2].points) == 1
-    @test length(prob.graph_outside.links) == 1
-    @test length(prob.graph_unknown.links) == 2
+    @test isreset
+    @test issuccess
+    @test length(prob.gfs) == 3
+    @test length(prob.states_inside) == 3
+    @test length(prob.states_image) == 2
+    @test length(prob.links_unknown) == 2
+    @test length(prob.states_outside) == 1
     @test any(
-        af -> (af.a ≈ [1] && af.β ≈ -6.5), prob.mpf[1].afs
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -6.5), prob.gfs
     )
     @test any(
-        af -> (af.a ≈ [-1] && abs(af.β) < 1e-6), prob.mpf[1].afs
+        gf -> (gf.loc == 1 && gf.af.a ≈ [-1] && gf.af.β ≈ 0.5), prob.gfs
     )
     @test any(
-        af -> (af.a ≈ [1] && af.β ≈ -5.5), prob.mpf[2].afs
+        gf -> (gf.loc == 2 && gf.af.a ≈ [1] && gf.af.β ≈ -5.5), prob.gfs
     )
 end
 
@@ -81,97 +72,31 @@ end
 
 prob = GeneratorProblem(
     N,
-    [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf
-    [[1000] for loc = 1:2], # msupport_new
-    [true for loc = 1:2], # mreset
-    [Grid([[0.0]]), empty_grid()], # mgrid_inside
-    [empty_grid() for loc = 1:2], # mgrid_image
-    Graph([
-        Link(2, [4.0], 1, [4.0]),
-        Link(1, [9.0], 2, [9.0]),
-        Link(2, [9.0], 1, [9.0])
-    ]), # graph_unknown
-    Graph([
-        Link(1, [1.0], 2, [2.0])
-    ]), # graph_unknown_new
-    Graph([
-        Link(1, [-4.0], 0, [NaN]),
-    ]), # graph_outside
-    Graph([
-        Link(1, [5.0], 0, [NaN]),
-    ]), # graph_outside_new
-    empty_graph(), # graph_temp
+    [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [0], # indices_new
+    [State(1, [1.0])], # states_inside
+    State[], # states_image
+    [
+        Link(State(2, [4.0]), State(1, [4.0])),
+        Link(State(1, [9.0]), State(2, [9.0])),
+        Link(State(2, [9.0]), State(1, [9.0]))
+    ], # links_unknown
+    [
+        Link(State(1, [1.0]), State(2, [2.0]))
+    ], # links_unknown_new
+    [State(1, [-3.0])], # states_outside
+    [State(1, [5.0])], # states_outside_new
+    [empty_xs() for i = 1:4]..., # all xs_...
     ϵ
 )
 
-flag = CPB.update_generator!(prob, βmax, solver)
+isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
 
 @testset "Generator: infeasible" begin
-    @test !flag
-    @test all(prob.mreset)
-    @test length(prob.mgrid_inside[1].points) == 2
-    @test length(prob.mgrid_inside[2].points) ≥ 1
-    @test length(prob.mgrid_image[1].points) == 1
-    @test length(prob.mgrid_image[2].points) ≥ 1
-end
-
-################################################################################
-## Generator: partially reset
-
-prob = GeneratorProblem(
-    N,
-    [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf
-    [[1000] for loc = 1:2], # msupport_new
-    [true for loc = 1:2], # mreset
-    [Grid([[0.0]]), empty_grid()], # mgrid_inside
-    [Grid([[0.0]]) for loc = 1:2], # mgrid_image
-    Graph([
-        Link(1, [0.0], 2, [9.0]),
-        Link(2, [9.0], 1, [9.0])
-    ]), # graph_unknown
-    Graph([
-        Link(1, [5.0], 2, [2.0]),
-        Link(2, [2.0], 2, [2.0])
-    ]), # graph_unknown_new
-    Graph([
-        Link(1, [0.0], 0, [NaN]),
-        Link(2, [-9.0], 0, [NaN])
-    ]), # graph_outside
-    Graph([
-        Link(1, [-5.0], 0, [NaN])
-    ]), # graph_outside_new
-    empty_graph(), # graph_temp
-    ϵ
-)
-
-flag = CPB.update_generator!(prob, βmax, solver)
-
-@testset "Generator: infeasible" begin
-    @test flag
-    @test !prob.mreset[1]
-    @test prob.mreset[2]
-    @test length(prob.mpf[1].afs) == 3
-    @test length(prob.mpf[2].afs) == 2
-    @test length(prob.msupport_new[1]) == 2
-    @test length(prob.mgrid_inside[1].points) == 1
-    @test length(prob.mgrid_inside[2].points) == 1
-    @test length(prob.mgrid_image[1].points) == 1
-    @test length(prob.mgrid_image[2].points) == 2
-    @test length(prob.graph_outside.links) == 3
-    @test length(prob.graph_unknown.links) == 3
-    afs = [prob.mpf[1].afs[i] for i in prob.msupport_new[1]]
-    @test any(
-        af -> (af.a ≈ [1] && af.β ≈ -2.5), afs
-    )
-    @test any(
-        af -> (af.a ≈ [-1] && af.β ≈ -2.5), afs
-    )
-    @test any(
-        af -> (af.a ≈ [1] && af.β ≈ -5.5), prob.mpf[2].afs
-    )
-    @test any(
-        af -> (af.a ≈ [-1] && af.β ≈ -4.5), prob.mpf[2].afs
-    )
+    @test isreset
+    @test !issuccess
+    @test length(prob.states_inside) == 3
+    @test length(prob.states_image) == 2
 end
 
 nothing

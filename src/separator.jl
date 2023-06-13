@@ -1,16 +1,16 @@
 struct SeparationProblem
     N::Int
-    grid_inside::Grid
-    grid_inside_margin::Grid
-    grid_outside::Grid
-    grid_outside_margin::Grid
+    xs_inside::Vector{Vector{Float64}}
+    xs_inside_margin::Vector{Vector{Float64}}
+    xs_outside::Vector{Vector{Float64}}
+    xs_outside_margin::Vector{Vector{Float64}}
 end
 
 struct AffFormVar
     a::Vector{VariableRef}
     β::VariableRef
 end
-_eval(af::AffFormVar, point) = dot(af.a, point) + af.β
+_eval(af::AffFormVar, x) = dot(af.a, x) + af.β
 
 function _optimize_check_separator!(model)
     optimize!(model)
@@ -27,17 +27,17 @@ function find_separator(prob::SeparationProblem, βmax, solver)
     r = @variable(model, upper_bound=10)
     af = AffFormVar(a, β)
 
-    for point in prob.grid_inside.points
-        @constraint(model, _eval(af, point) ≤ 0)
+    for x in prob.xs_inside
+        @constraint(model, _eval(af, x) ≤ 0)
     end
-    for point in prob.grid_inside_margin.points
-        @constraint(model, _eval(af, point) + r ≤ 0)
+    for x in prob.xs_inside_margin
+        @constraint(model, _eval(af, x) + r ≤ 0)
     end
-    for point in prob.grid_outside.points
-        @constraint(model, _eval(af, point) ≥ 0)
+    for x in prob.xs_outside
+        @constraint(model, _eval(af, x) ≥ 0)
     end
-    for point in prob.grid_outside_margin.points
-        @constraint(model, _eval(af, point) - r ≥ 0)
+    for x in prob.xs_outside_margin
+        @constraint(model, _eval(af, x) - r ≥ 0)
     end
 
     @objective(model, Max, r)

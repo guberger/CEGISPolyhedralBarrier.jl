@@ -1,95 +1,80 @@
 struct GeneratorProblem
     N::Int
-    mpf::Vector{PolyFunc}
-    msupport_new::Vector{Vector{Int}}
-    mreset::Vector{Bool}
-    mgrid_inside::Vector{Grid}
-    mgrid_image::Vector{Grid}
-    graph_unknown::Graph
-    graph_unknown_new::Graph
-    graph_outside::Graph
-    graph_outside_new::Graph
-    graph_temp::Graph
+    gfs::Vector{GenForm}
+    indices_new::Vector{Int}
+    states_inside::Vector{State}
+    states_image::Vector{State}
+    links_unknown::Vector{Link}
+    links_unknown_new::Vector{Link}
+    states_outside::Vector{State}
+    states_outside_new::Vector{State}
+    xs_inside::Vector{Vector{Float64}}
+    xs_inside_margin::Vector{Vector{Float64}}
+    xs_outside::Vector{Vector{Float64}}
+    xs_outside_margin::Vector{Vector{Float64}}
     ϵ::Float64
 end
 
+function make_separation_problem!(prob, state_out)
+    empty!(prob.xs_inside)
+    for state in prob.states_inside
+        if state.loc == state_out.loc
+            push!(prob.xs_inside, state.x)
+        end
+    end
+    empty!(prob.xs_inside_margin)
+    for state in prob.states_image
+        if state.loc == state_out.loc
+            push!(prob.xs_inside_margin, state.x)
+        end
+    end
+    empty!(prob.xs_outside)
+    empty!(prob.xs_outside_margin)
+    push!(prob.xs_outside_margin, state_out.x)
+    return SeparationProblem(prob.N,
+                             prob.xs_inside, prob.xs_inside_margin,
+                             prob.xs_outside, prob.xs_outside_margin)
+end
+
 function update_generator!(prob::GeneratorProblem, βmax, solver)
-    fill!(prob.mreset, false)
-    foreach(empty!, prob.msupport_new)
-    while !isempty(prob.graph_outside_new.links) ||
-          !isempty(prob.graph_unknown_new.links)
-        while !isempty(prob.graph_outside_new.links)
-            # print(".")
-            link = pop!(prob.graph_outside_new.links)
-            sep_prob = SeparationProblem(prob.N,
-                                         prob.mgrid_inside[link.loc_pre],
-                                         prob.mgrid_image[link.loc_pre],
-                                         empty_grid(),
-                                         Grid([link.point_pre]))
+    isreset = false
+    while !isempty(prob.states_outside_new) || !isempty(prob.links_unknown_new)
+        while !isempty(prob.states_outside_new)
+            state = pop!(prob.states_outside_new)
+            sep_prob = make_separation_problem!(prob, state)
             af, r = find_separator(sep_prob, βmax, solver)
             if r < prob.ϵ
-                return false
+                return isreset, false
             else
-                push!(prob.mpf[link.loc_pre].afs, af)
-                if !prob.mreset[link.loc_pre]
-                    new_index = length(prob.mpf[link.loc_pre].afs)
-                    push!(prob.msupport_new[link.loc_pre], new_index)
+                push!(prob.gfs, GenForm(state.loc, af))
+                if !isreset
+                    push!(prob.indices_new, length(prob.gfs))
                 end
-                push!(prob.graph_outside.links, link)
+                push!(prob.states_outside, state)
             end
         end
-        while !isempty(prob.graph_unknown_new.links)
-            # print("+")
-            link = pop!(prob.graph_unknown_new.links)
-            sep_prob = SeparationProblem(prob.N,
-                                         prob.mgrid_inside[link.loc_pre],
-                                         prob.mgrid_image[link.loc_pre],
-                                         empty_grid(),
-                                         Grid([link.point_pre]))
+        while !isempty(prob.links_unknown_new)
+            link = pop!(prob.links_unknown_new)
+            sep_prob = make_separation_problem!(prob, link.src)
             af, r = find_separator(sep_prob, βmax, solver)
             if r < prob.ϵ
-                push!(prob.mgrid_inside[link.loc_pre].points, link.point_pre)
-                push!(prob.mgrid_image[link.loc_post].points, link.point_post)
-                empty!(prob.mpf[link.loc_pre].afs)
-                empty!(prob.mpf[link.loc_post].afs)
-                prob.mreset[link.loc_pre] = true
-                prob.mreset[link.loc_post] = true
-                empty!(prob.graph_temp.links)
-                while !isempty(prob.graph_outside.links)
-                    link2 = pop!(prob.graph_outside.links)
-                    if link2.loc_pre == link.loc_pre ||
-                        link2.loc_pre == link.loc_post
-                        push!(prob.graph_outside_new.links, link2)
-                    else
-                        push!(prob.graph_temp.links, link2)
-                    end
-                end
-                for link2 in prob.graph_temp.links
-                    push!(prob.graph_outside.links, link2)
-                end
-                empty!(prob.graph_temp.links)
-                while !isempty(prob.graph_unknown.links)
-                    link2 = pop!(prob.graph_unknown.links)
-                    if link2.loc_pre == link.loc_pre ||
-                        link2.loc_pre == link.loc_post
-                        push!(prob.graph_unknown_new.links, link2)
-                    else
-                        push!(prob.graph_temp.links, link2)
-                    end
-                end
-                for link2 in prob.graph_temp.links
-                    push!(prob.graph_unknown.links, link2)
-                end
+                isreset = true
+                empty!(prob.gfs)
+                push!(prob.states_inside, link.src)
+                push!(prob.states_image, link.dst)
+                append!(prob.links_unknown_new, prob.links_unknown)
+                empty!(prob.links_unknown)
+                append!(prob.states_outside_new, prob.states_outside)
+                empty!(prob.states_outside)
                 break # starts with outside first
             else
-                push!(prob.mpf[link.loc_pre].afs, af)
-                if !prob.mreset[link.loc_pre]
-                    new_index = length(prob.mpf[link.loc_pre].afs)
-                    push!(prob.msupport_new[link.loc_pre], new_index)
+                push!(prob.gfs, GenForm(link.src.loc, af))
+                if !isreset
+                    push!(prob.indices_new, length(prob.gfs))
                 end
-                push!(prob.graph_unknown.links, link)
+                push!(prob.links_unknown, link)
             end
         end
     end
-    return true
+    return isreset, true
 end

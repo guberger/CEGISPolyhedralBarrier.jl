@@ -9,8 +9,7 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 SeparationProblem = CPB.SeparationProblem
-Grid = CPB.Grid
-empty_grid = CPB.empty_grid
+empty_xs() = Vector{Float64}[]
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
@@ -21,8 +20,8 @@ N = 2
 
 ## Empty
 prob = SeparationProblem(N,
-                         empty_grid(), empty_grid(),
-                         empty_grid(), Grid([[0.0, 0.0]]))
+                         empty_xs(), empty_xs(),
+                         empty_xs(), [[0.0, 0.0]])
 af, r = CPB.find_separator(prob, βmax, solver)
 
 @testset "compute sep empty" begin
@@ -32,8 +31,8 @@ end
 
 ## Set #1
 prob = SeparationProblem(N,
-                         Grid([[0.0, 0.0]]), Grid([[0.0, 0.0]]),
-                         empty_grid(), Grid([[0.5, 0.0]]))
+                         [[0.0, 0.0]], [[0.0, 0.0]],
+                         empty_xs(), [[0.5, 0.0]])
 af, r = CPB.find_separator(prob, βmax, solver)
 
 @testset "compute sep #1.1" begin
@@ -42,8 +41,8 @@ af, r = CPB.find_separator(prob, βmax, solver)
 end
 
 prob = SeparationProblem(N,
-                         Grid([[0.0, 0.0]]), empty_grid(),
-                         empty_grid(), Grid([[0.5, 0.0]]))
+                         [[0.0, 0.0]], empty_xs(),
+                         empty_xs(), [[0.5, 0.0]])
 af, r = CPB.find_separator(prob, βmax, solver)
 
 @testset "compute sep #1.2" begin
@@ -53,10 +52,8 @@ end
 
 ## Set #2
 prob = SeparationProblem(N,
-                         Grid([[0.0, 0.0], [4.0, 0.0]]),
-                         Grid([[0.0, 0.0], [4.0, 0.0]]),
-                         empty_grid(),
-                         Grid([[8.0, 0.0]]))
+                         [[0.0, 0.0], [4.0, 0.0]], [[0.0, 0.0], [4.0, 0.0]],
+                         empty_xs(), [[8.0, 0.0]])
 af, r = CPB.find_separator(prob, βmax, solver)
 
 @testset "compute sep #2.1" begin
@@ -65,29 +62,30 @@ af, r = CPB.find_separator(prob, βmax, solver)
 end
 
 prob = SeparationProblem(N,
-                         Grid([[4.0, 0.0]]), Grid([[0.0, 0.0]]),
-                         empty_grid(), Grid([[8.0, 0.0]]))
+                        [[6.0, 0.0]], [[8.0, 0.0]],
+                         empty_xs(), [[2.0, 0.0]])
 af, r = CPB.find_separator(prob, βmax, solver)
 
 @testset "compute sep #2.2" begin
-    @test r ≈ 4
+    @test r ≈ 3
     @test norm(af.a, Inf) ≈ 1
 end
 
 βmax = 1.0
 af, r = CPB.find_separator(prob, βmax, solver)
+display(af)
 
 @testset "compute sep #2.3" begin
-    @test r ≈ 1
-    @test norm(af.a, Inf) ≈ 1
-    @test abs(af.β) ≈ βmax
+    @test r ≈ 3*βmax/5
+    @test af.a[1] ≈ -βmax/5
+    @test af.β ≈ βmax
 end
 
 ## Set #3
 βmax = 100.0
 prob = SeparationProblem(N,
-                         Grid([[1.0, -1.0]]), Grid([[1.0, 1.0]]),
-                         empty_grid(), Grid([[2.0, 0.0]]))
+                         [[1.0, -1.0]], [[1.0, 1.0]],
+                         empty_xs(), [[2.0, 0.0]])
 af, r = CPB.find_separator(prob, βmax, solver)
 
 @testset "compute sep #3" begin
