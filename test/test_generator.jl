@@ -32,7 +32,7 @@ N = 1
 prob = GeneratorProblem(
     N,
     [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf
-    [empty_pf() for loc = 1:2], # mpf_new
+    [[1000] for loc = 1:2], # msupport_new
     [true for loc = 1:2], # mreset
     [Grid([[0.0]]), empty_grid()], # mgrid_inside
     [empty_grid() for loc = 1:2], # mgrid_image
@@ -82,7 +82,7 @@ end
 prob = GeneratorProblem(
     N,
     [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf
-    [empty_pf() for loc = 1:2], # mpf_new
+    [[1000] for loc = 1:2], # msupport_new
     [true for loc = 1:2], # mreset
     [Grid([[0.0]]), empty_grid()], # mgrid_inside
     [empty_grid() for loc = 1:2], # mgrid_image
@@ -121,7 +121,7 @@ end
 prob = GeneratorProblem(
     N,
     [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf
-    [PolyFunc([AffForm([0.0], 0.0)]) for loc = 1:2], # mpf_new
+    [[1000] for loc = 1:2], # msupport_new
     [true for loc = 1:2], # mreset
     [Grid([[0.0]]), empty_grid()], # mgrid_inside
     [Grid([[0.0]]) for loc = 1:2], # mgrid_image
@@ -152,21 +152,20 @@ flag = CPB.update_generator!(prob, βmax, solver)
     @test prob.mreset[2]
     @test length(prob.mpf[1].afs) == 3
     @test length(prob.mpf[2].afs) == 2
-    @test length(prob.mpf_new[1].afs) == 2
+    @test length(prob.msupport_new[1]) == 2
     @test length(prob.mgrid_inside[1].points) == 1
     @test length(prob.mgrid_inside[2].points) == 1
     @test length(prob.mgrid_image[1].points) == 1
     @test length(prob.mgrid_image[2].points) == 2
     @test length(prob.graph_outside.links) == 3
     @test length(prob.graph_unknown.links) == 3
-    for pf in (prob.mpf[1], prob.mpf_new[1])
-        @test any(
-            af -> (af.a ≈ [1] && af.β ≈ -2.5), pf.afs
-        )
-        @test any(
-            af -> (af.a ≈ [-1] && af.β ≈ -2.5), pf.afs
-        )
-    end
+    afs = [prob.mpf[1].afs[i] for i in prob.msupport_new[1]]
+    @test any(
+        af -> (af.a ≈ [1] && af.β ≈ -2.5), afs
+    )
+    @test any(
+        af -> (af.a ≈ [-1] && af.β ≈ -2.5), afs
+    )
     @test any(
         af -> (af.a ≈ [1] && af.β ≈ -5.5), prob.mpf[2].afs
     )

@@ -1,7 +1,7 @@
 struct GeneratorProblem
     N::Int
     mpf::Vector{PolyFunc}
-    mpf_new::Vector{PolyFunc}
+    msupport_new::Vector{Vector{Int}}
     mreset::Vector{Bool}
     mgrid_inside::Vector{Grid}
     mgrid_image::Vector{Grid}
@@ -15,7 +15,7 @@ end
 
 function update_generator!(prob::GeneratorProblem, βmax, solver)
     fill!(prob.mreset, false)
-    foreach(pf -> empty!(pf.afs), prob.mpf_new)
+    foreach(empty!, prob.msupport_new)
     while !isempty(prob.graph_outside_new.links) ||
           !isempty(prob.graph_unknown_new.links)
         while !isempty(prob.graph_outside_new.links)
@@ -32,7 +32,8 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
             else
                 push!(prob.mpf[link.loc_pre].afs, af)
                 if !prob.mreset[link.loc_pre]
-                    push!(prob.mpf_new[link.loc_pre].afs, af)
+                    new_index = length(prob.mpf[link.loc_pre].afs)
+                    push!(prob.msupport_new[link.loc_pre], new_index)
                 end
                 push!(prob.graph_outside.links, link)
             end
@@ -83,7 +84,8 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
             else
                 push!(prob.mpf[link.loc_pre].afs, af)
                 if !prob.mreset[link.loc_pre]
-                    push!(prob.mpf_new[link.loc_pre].afs, af)
+                    new_index = length(prob.mpf[link.loc_pre].afs)
+                    push!(prob.msupport_new[link.loc_pre], new_index)
                 end
                 push!(prob.graph_unknown.links, link)
             end
