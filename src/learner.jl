@@ -6,13 +6,90 @@
     MAX_ITER_REACHED = 3
 end
 
+function _reset_crossing_problem!(prob)
+    empty!(prob.afs_inside)
+    empty!(prob.afs_inside_margin)
+    empty!(prob.afs_outside)
+    empty!(prob.afs_outside_margin)
+end
+
+struct VerifierSafeProblem
+    N::Int
+    sys::System
+    mpf_safe::MultiPolyFunc
+    mpf_inv::MultiPolyFunc
+    mpf_BF::MultiPolyFunc
+end
+
+function find_counterexample(prob::VerifierSafeProblem, xmax, solver)
+    cross_prob = empty_cross_problem(prob.N)
+    xopt::Vector{Float64} = fill(NaN, prob.N)
+    ropt::Float64 = -Inf
+    locopt::Int = 0
+    for piece in prob.sys.pieces
+        pf_dom, A, b = piece.pf_dom, piece.A, piece.b
+        _reset_crossing_problem!(cross_prob)
+        append!(cross_prob.afs_inside, pf_dom.afs)
+        append!(cross_prob.afs_inside, prob.mpf_inv.pfs[piece.loc1].afs)
+        append!(cross_prob.afs_inside_margin, prob.mpf_safe.pfs[piece.loc1].afs)
+        append!(cross_prob.afs_inside_margin, prob.mpf_BF.pfs[piece.loc1].afs)
+        for af in prob.mpf_safe.pfs[piece.loc2].afs
+            empty!(cross_prob.afs_outside)
+            push!(cross_prob.afs_outside, af)
+            x, r, flag = find_crosser(cross_prob, A, b, xmax, solver
+            )
+            if flag && r > ropt
+                xopt = x
+                ropt = r
+                locopt = piece.loc1
+            end
+        end
+    end
+    return xopt, ropt, locopt
+end
+
+struct VerifierBFProblem
+    N::Int
+    sys::System
+    mpf_safe::MultiPolyFunc
+    mpf_inv::MultiPolyFunc
+    mpf_BF::MultiPolyFunc
+end
+
+function find_counterexample(prob::VerifierBFProblem, xmax, solver)
+    cross_prob = empty_cross_problem(prob.N)
+    xopt::Vector{Float64} = fill(NaN, prob.N)
+    ropt::Float64 = -Inf
+    locopt::Int = 0
+    for piece in prob.sys.pieces
+        pf_dom, A, b = piece.pf_dom, piece.A, piece.b
+        _reset_crossing_problem!(cross_prob)
+        append!(cross_prob.afs_inside, pf_dom.afs)
+        append!(cross_prob.afs_inside, prob.mpf_inv.pfs[piece.loc1].afs)
+        append!(cross_prob.afs_inside_margin, prob.mpf_safe.pfs[piece.loc1].afs)
+        append!(cross_prob.afs_inside_margin, prob.mpf_BF.pfs[piece.loc1].afs)
+        for af in prob.mpf_BF.pfs[piece.loc2].afs
+            empty!(cross_prob.afs_outside_margin)
+            push!(cross_prob.afs_outside_margin, af)
+            x, r, flag = find_crosser(cross_prob, A, b, xmax, solver
+            )
+            if flag && r > ropt
+                xopt = x
+                ropt = r
+                locopt = piece.loc1
+            end
+        end
+    end
+    return xopt, ropt, locopt
+end
+
 struct BarrierProblem
     N::Int
     M::Int
     sys::System,
     mpf_safe::MultiPolyFunc
     mpf_inv::MultiPolyFunc
-    mgrid_init::MultiGrid,
+    mgrid_init::Vector{Vector{Vector{Float64}}},
     ϵ::Float64
 end
 
@@ -24,12 +101,12 @@ struct LearnerState
     sep_prob::SeparationProblem
     verif_safe_prob::VerifierSafeProblem
     verif_bf_prob::VerifierBFProblem
-    mgrid_inside::MultiGrid
-    mgrid_image::MultiGrid
-    mgrid_unknown::MultiGrid
-    mgrid_unknown_new::MultiGrid
-    mgrid_outside::MultiGrid
-    mgrid_outside_new::MultiGrid
+    mgrid_inside::Vector{Vector{Vector{Float64}}}
+    mgrid_image::Vector{Vector{Vector{Float64}}}
+    mgraph_unknown::Vector{Vector{Vector{Float64}}}
+    mgraph_unknown_new::Vector{Vector{Vector{Float64}}}
+    mgrid_outside::Vector{Vector{Vector{Float64}}}
+    mgrid_outside_new::Vector{Vector{Vector{Float64}}}
     loc_stack::Vector{Int}
 end
 state_init(M) = Cluster(ntuple(i -> empty_multigrid(M), Val(6))..., Int[])
@@ -124,8 +201,8 @@ function find_barrier(prob::BarrierProblem, iter_max, solver_sep, solver_verif;
 
         empty!(list_unknown_temp)
 
-        while !isempty(state.mgrid_unknown[loc])
-            point = pop!(state.mgrid_unknown[loc])
+        while !isempty(state.mgraph_unknown[loc])
+            point = pop!(state.mgraph_unknown[loc])
             af, r = compute_af(
                 grid_inside, grid_image, point, βmax, N, solver_sep
             )
@@ -136,7 +213,7 @@ function find_barrier(prob::BarrierProblem, iter_max, solver_sep, solver_verif;
                     _sys, loc, point, tol_dom
                 )
                 # uncomment two lines below for approach of the paper
-                # empty!(state.mgrid_unknown[loc])
+                # empty!(state.mgraph_unknown[loc])
                 # empty!(list_unknown_temp)
                 break
             end
@@ -145,7 +222,7 @@ function find_barrier(prob::BarrierProblem, iter_max, solver_sep, solver_verif;
         end
 
         for point in list_unknown_temp
-            push!(state.mgrid_unknown[loc], point)
+            push!(state.mgraph_unknown[loc], point)
         end
 
         !isempty(loc_stack) && continue
@@ -174,7 +251,7 @@ function find_barrier(prob::BarrierProblem, iter_max, solver_sep, solver_verif;
                 push!(state.mgrid_outside[loc], x)
             else
                 do_print && println(" (unknown)")
-                push!(state.mgrid_unknown[loc], x)
+                push!(state.mgraph_unknown[loc], x)
             end
             push!(loc_stack, loc)
             continue

@@ -20,12 +20,6 @@ isless_approx(pf::PolyFunc, point, atol, rtol) =
     all(af -> isless_approx(af, point, atol, rtol), pf.afs)
 empty_pf() = PolyFunc(AffForm[])
 
-struct MultiPolyFunc
-    pfs::Vector{PolyFunc}
-end
-Base.empty!(mpf::MultiPolyFunc, loc) = empty!(mpf.pfs[loc])
-empty_mpf(M) = MultiPolyFunc([empty_pf() for loc = 1:M])
-
 struct Piece
     pf_dom::PolyFunc
     loc1::Int
@@ -43,13 +37,22 @@ struct Grid
 end
 empty_grid() = Grid(Vector{Float64}[])
 
-struct MultiGrid
-    grids::Vector{Grid}
+struct Link
+    loc_pre::Int
+    point_pre::Vector{Float64}
+    loc_post::Int
+    point_post::Vector{Float64}
 end
-empty_multigrid(M) = MultiGrid([empty_grid() for loc = 1:M])
+
+struct Graph
+    links::Vector{Link}
+end
+empty_graph() = Graph(Link[])
 
 include("separator.jl")
-include("verifier.jl")
+include("generator.jl")
+include("crosser.jl")
+# include("verifier.jl")
 # include("learner.jl")
 
 end # module

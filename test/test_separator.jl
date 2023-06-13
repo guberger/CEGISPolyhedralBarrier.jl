@@ -16,7 +16,6 @@ solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
 ))
 
-η = 1e-1
 βmax = 100.0
 N = 2
 
