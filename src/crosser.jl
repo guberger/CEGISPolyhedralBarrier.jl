@@ -2,12 +2,11 @@ struct CrossingProblem
     N::Int
     A::Matrix{Float64}
     b::Vector{Float64}
-    pf_inside::PolyFunc
-    pf_inside_margin::PolyFunc
-    pf_outside::PolyFunc
-    pf_outside_margin::PolyFunc
+    afs_inside::Vector{AffForm}
+    afs_inside_margin::Vector{AffForm}
+    afs_outside::Vector{AffForm}
+    afs_outside_margin::Vector{AffForm}
 end
-empty_cross_problem(N) = CrossingProblem(N, ntuple(i -> AffForm[], Val(4))...)
 
 function _optimize_check_counterexample!(model)
     optimize!(model)
@@ -25,16 +24,16 @@ function find_crosser(prob::CrossingProblem, xmax, solver)
     r = @variable(model, upper_bound=10*xmax)
     y = prob.A*x + prob.b
 
-    for af in prob.pf_inside.afs
+    for af in prob.afs_inside
         @constraint(model, _eval(af, x) ≤ 0)
     end
-    for af in prob.pf_inside_margin.afs
+    for af in prob.afs_inside_margin
         @constraint(model, _eval(af, x) ≤ -margin(af, 0, r))
     end
-    for af in prob.pf_outside.afs
+    for af in prob.afs_outside
         @constraint(model, _eval(af, y) ≥ 0)
     end
-    for af in prob.pf_outside_margin.afs
+    for af in prob.afs_outside_margin
         @constraint(model, _eval(af, y) ≥ margin(af, 0, r))
     end
 

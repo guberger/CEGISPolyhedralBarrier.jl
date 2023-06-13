@@ -9,9 +9,7 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 AffForm = CPB.AffForm
-PolyFunc = CPB.PolyFunc
 CrossingProblem = CPB.CrossingProblem
-empty_pf = CPB.empty_pf
 
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
@@ -26,10 +24,8 @@ b = [1.0]
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0], 0.0), AffForm([1.0], 1.0)]),
-    PolyFunc([AffForm([-0.5], 0.25)]),
-    empty_pf(),
-    empty_pf()
+    [AffForm([-1.0], 0.0), AffForm([1.0], 1.0)], [AffForm([-0.5], 0.25)],
+    AffForm[], AffForm[]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -42,10 +38,10 @@ end
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0], 0.0), AffForm([1.0], -1.0)]),
-    PolyFunc([AffForm([-0.5], 0.25)]),
-    empty_pf(),
-    empty_pf()
+    [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
+    [AffForm([-0.5], 0.25)],
+    AffForm[],
+    AffForm[]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -58,10 +54,10 @@ end
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0], 0.0), AffForm([1.0], -1.0)]),
-    PolyFunc([AffForm([1.0], -0.25), AffForm([-0.5], 0.25)]),
-    PolyFunc([AffForm([1.0], -0.25)]),
-    empty_pf()
+    [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
+    [AffForm([1.0], -0.25), AffForm([-0.5], 0.25)],
+    [AffForm([1.0], -0.25)],
+    AffForm[]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -74,10 +70,10 @@ end
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0], 0.0), AffForm([1.0], -1.0)]),
-    PolyFunc([AffForm([1.0], -1.0), AffForm([-0.5], 0.25)]),
-    PolyFunc([AffForm([1.0], -1.0)]),
-    empty_pf()
+    [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
+    [AffForm([1.0], -1.0), AffForm([-0.5], 0.25)],
+    [AffForm([1.0], -1.0)],
+    AffForm[]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -90,10 +86,10 @@ end
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0], 0.0), AffForm([1.0], -1.0)]),
-    PolyFunc([AffForm([1.0], -1.0), AffForm([-0.5], 0.25)]),
-    empty_pf(),
-    PolyFunc([AffForm([-0.5], 0.25)])
+    [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
+    [AffForm([1.0], -1.0), AffForm([-0.5], 0.25)],
+    AffForm[],
+    [AffForm([-0.5], 0.25)]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -111,10 +107,10 @@ b = [0.0, 0.0]
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0, 0.0], -1.0), AffForm([0.0, 1.0], -1.0)]),
-    PolyFunc([AffForm([0.0, -1.0], -1.0), AffForm([1.0, 0.0], -1.0)]),
-    empty_pf(),
-    empty_pf()
+    [AffForm([-1.0, 0.0], -1.0), AffForm([0.0, 1.0], -1.0)],
+    [AffForm([0.0, -1.0], -1.0), AffForm([1.0, 0.0], -1.0)],
+    AffForm[],
+    AffForm[]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -127,10 +123,10 @@ end
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0, 0.0], -1.0), AffForm([0.0, 1.0], -1.0)]),
-    PolyFunc([AffForm([0.0, -1.0], -1.0)]),
-    empty_pf(),
-    PolyFunc([AffForm([1.0, 0.0], -1.0)])
+    [AffForm([-1.0, 0.0], -1.0), AffForm([0.0, 1.0], -1.0)],
+    [AffForm([0.0, -1.0], -1.0)],
+    AffForm[],
+    [AffForm([1.0, 0.0], -1.0)]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -146,10 +142,10 @@ b = [0.0, 0.0]
 
 prob = CrossingProblem(
     N, A, b,
-    PolyFunc([AffForm([-1.0, 0.0], -1.0), AffForm([1.0, 0.0], -2.0)]),
-    PolyFunc([AffForm([0.0, -1.0], -1.0)]),
-    PolyFunc([AffForm([0.0, -1.0], -1.0)]),
-    empty_pf()
+    [AffForm([-1.0, 0.0], -1.0), AffForm([1.0, 0.0], -2.0)],
+    [AffForm([0.0, -1.0], -1.0)],
+    [AffForm([0.0, -1.0], -1.0)],
+    AffForm[]
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
