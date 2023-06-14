@@ -1,6 +1,6 @@
 struct CexKey
     q::Int # piece
-    i::Int # gf_bf
+    i::Int # gf_out
 end
 
 struct CexVal
@@ -11,22 +11,25 @@ end
 struct VerifierProblem
     N::Int
     pieces::Vector{Piece}
-    gfs_bf::Vector{GenForm}
-    gfs_safe::Vector{GenForm}
     gfs_inv::Vector{GenForm}
+    gfs_safe::Vector{GenForm}
+    gfs_bf::Vector{GenForm}
+    gfs_out::Vector{GenForm}
     cexs::Dict{CexKey,CexVal}
     keys_todo::Vector{CexKey}
-    afs_inside::Vector{AffForm}
+    afs_inside_fragile::Vector{AffForm}
     afs_inside_margin::Vector{AffForm}
     afs_outside::Vector{AffForm}
-    afs_outside_margin::Vector{AffForm}
+    λ::Float64
 end
 
-function add_infeasible_keys!(prob::VerifierProblem, gfs)
+_is_feasible(val::CexVal, gf::GenForm) =
+    val.state.loc != gf.loc || _eval(gf.af, val.state.x) ≤ -margin(gf.af, 0, val.r)
+
+function add_keys_bf_infeasible!(prob::VerifierProblem, indices)
     for (key, val) in prob.cexs
-        state = val.state
-        for gf in gfs
-            if state.loc == gf.loc && _eval(gf.af, state.x) > 0
+        for i in indices
+            if !_is_feasible(val, prob.gfs_bf[i])
                 push!(prob.keys_todo, key)
                 break
             end
@@ -34,25 +37,25 @@ function add_infeasible_keys!(prob::VerifierProblem, gfs)
     end
 end
 
-function add_gfs_keys!(prob::VerifierProblem, gfs, indices)
+function add_keys_out_new!(prob::VerifierProblem, indices)
     for (q, piece) in enumerate(prob.pieces)
         for i in indices
-            if piece.loc_dst == gfs[i].loc
+            if piece.loc_dst == prob.gfs_out[i].loc
                 push!(prob.keys_todo, CexKey(q, i))
             end
         end
     end
 end
 
-function prepare_crossing_problem!(prob, piece)
-    empty!(prob.afs_inside)
+function make_crossing_problem!(prob, piece, af_out)
+    empty!(prob.afs_inside_fragile)
+    for af in piece.afs_dom
+        push!(prob.afs_inside_fragile, af)
+    end
     for gf in prob.gfs_inv
         if gf.loc == piece.loc_src
-            push!(prob.afs_inside, gf.af)
+            push!(prob.afs_inside_fragile, gf.af)
         end
-    end
-    for af in piece.afs_dom
-        push!(prob.afs_inside, af)
     end
     empty!(prob.afs_inside_margin)
     for gf in prob.gfs_safe
@@ -66,31 +69,18 @@ function prepare_crossing_problem!(prob, piece)
         end
     end
     empty!(prob.afs_outside)
-    empty!(prob.afs_outside_margin)
+    push!(prob.afs_outside, af_out)
     return CrossingProblem(prob.N, piece.A, piece.b,
-                           prob.afs_inside, prob.afs_inside_margin,
-                           prob.afs_outside, prob.afs_outside_margin)
+                           prob.afs_inside_fragile,
+                           prob.afs_inside_margin,
+                           prob.afs_outside, prob.λ)
 end
 
-function update_cexs_safe!(prob::VerifierProblem, xmax, solver)
+function update_cexs!(prob::VerifierProblem, xmax, solver)
     for key in prob.keys_todo
-        piece, gf_out = prob.pieces[key.q], prob.gfs_safe[key.i]
+        piece, gf_out = prob.pieces[key.q], prob.gfs_out[key.i]
         @assert piece.loc_dst == gf_out.loc
-        cross_prob = prepare_crossing_problem!(prob, piece)
-        push!(cross_prob.afs_outside, gf_out.af)
-        x, r, isfeasible = find_crosser(cross_prob, xmax, solver)
-        if isfeasible
-            prob.cexs[key] = CexVal(State(piece.loc_src, x), r)
-        end
-    end
-end
-
-function update_cexs_cont!(prob::VerifierProblem, xmax, solver)
-    for key in prob.keys_todo
-        piece, gf_out = prob.pieces[key.q], prob.gfs_bf[key.i]
-        @assert piece.loc_dst == gf_out.loc
-        cross_prob = prepare_crossing_problem!(prob, piece)
-        push!(cross_prob.afs_outside_margin, gf_out.af)
+        cross_prob = make_crossing_problem!(prob, piece, gf_out.af)
         x, r, isfeasible = find_crosser(cross_prob, xmax, solver)
         if isfeasible
             prob.cexs[key] = CexVal(State(piece.loc_src, x), r)

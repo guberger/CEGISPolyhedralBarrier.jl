@@ -38,6 +38,6 @@ include("separator.jl")
 include("generator.jl")
 include("crosser.jl")
 include("verifier.jl")
-# include("learner.jl")
+include("learner.jl")
 
 end # module

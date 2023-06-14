@@ -31,17 +31,19 @@ pieces = [Piece([AffForm([-1.0], 0.0)], 1, [0.5;;], [1.0], 1)]
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
-    GenForm[], # gfs_safe
     [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    GenForm[], # gfs_safe
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    GenForm[], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    0.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
-CPB.update_cexs_safe!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify safe: empty" begin
     @test isempty(prob.keys_todo)
@@ -51,17 +53,19 @@ end
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
-    [GenForm(1, AffForm([1.0], -0.25))], # gfs_safe
     [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -0.25))], # gfs_safe
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    [GenForm(1, AffForm([1.0], -0.25))], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    0.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
-CPB.update_cexs_safe!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify safe: r neg" begin
     @test length(prob.keys_todo) == 1
@@ -74,17 +78,19 @@ end
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
-    [GenForm(1, AffForm([1.0], -1.0))], # gfs_safe
     [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    0.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
-CPB.update_cexs_safe!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify safe: r pos" begin
     @test length(prob.keys_todo) == 1
@@ -95,9 +101,9 @@ CPB.update_cexs_safe!(prob, xmax, solver)
 end
 
 empty!(prob.keys_todo)
-prob.cexs[CexKey(1, 1)].state.x[1] = -5.0
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.update_cexs_safe!(prob, xmax, solver)
+prob.cexs[CexKey(1, 1)].state.x[1] = 0.7
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify safe: add infeasible" begin
     @test length(prob.keys_todo) == 1
@@ -110,17 +116,19 @@ end
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
-    [GenForm(1, AffForm([1.0], -1.0))], # gfs_safe
     [GenForm(1, AffForm([1.0], -1.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_bf
+    [GenForm(1, AffForm([-0.5], 0.25))], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    1.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_bf, eachindex(prob.gfs_bf))
-CPB.update_cexs_cont!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify cont: r neg" begin
     @test length(prob.keys_todo) == 1
@@ -131,9 +139,9 @@ CPB.update_cexs_cont!(prob, xmax, solver)
 end
 
 empty!(prob.keys_todo)
-prob.cexs[CexKey(1, 1)].state.x[1] = -5.0
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.update_cexs_cont!(prob, xmax, solver)
+prob.cexs[CexKey(1, 1)].state.x[1] = -0.05
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify cont: add infeasible" begin
     @test length(prob.keys_todo) == 1
@@ -154,17 +162,19 @@ pieces = [
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_bf
-    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
     [GenForm(1, AffForm([0.0, 1.0], -1.0))], # gfs_inv
+    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_bf
+    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    0.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
-CPB.update_cexs_safe!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify safe: empty" begin
     @test isempty(prob.keys_todo)
@@ -174,17 +184,19 @@ end
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_bf
-    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
     [GenForm(1, AffForm([0.0, 1.0], -1.0))], # gfs_inv
+    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
+    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_bf
+    [GenForm(1, AffForm([1.0, 0.0], -1.0))], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    0.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_bf, eachindex(prob.gfs_bf))
-CPB.update_cexs_cont!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify cont: empty" begin
     @test isempty(prob.keys_todo)
@@ -194,17 +206,19 @@ end
 #-------------------------------------------------------------------------------
 prob = VerifierProblem(
     N, pieces,
-    [GenForm(2, AffForm([1.0, 0.0], -1.0))], # gfs_bf
-    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
     [GenForm(1, AffForm([0.0, 1.0], -1.0))], # gfs_inv
+    [GenForm(1, AffForm([0.0, -1.0], -1.0))], # gfs_safe
+    [GenForm(2, AffForm([1.0, 0.0], -1.0))], # gfs_bf
+    [GenForm(2, AffForm([1.0, 0.0], -1.0))], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    1.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_bf, eachindex(prob.gfs_bf))
-CPB.update_cexs_cont!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify cont: r zero" begin
     @test length(prob.keys_todo) == 1
@@ -225,20 +239,25 @@ pieces = [
 
 prob = VerifierProblem(
     N, pieces,
-    GenForm[], # gfs_bf
+    [GenForm(1, AffForm([1.0, 0.0], -2.0))], # gfs_inv
     [
         GenForm(1, AffForm([0.0, -1.0], -1.0)),
         GenForm(2, AffForm([0.0, -1.0], -1.0))
     ], # gfs_safe
-    [GenForm(1, AffForm([1.0, 0.0], -2.0))], # gfs_inv
+    GenForm[], # gfs_bf
+    [
+        GenForm(1, AffForm([0.0, -1.0], -1.0)),
+        GenForm(2, AffForm([0.0, -1.0], -1.0))
+    ], # gfs_out
     Dict{CexKey,CexVal}(),
     CexKey[],
-    [AffForm[] for i = 1:4]..., # all afs_...
+    [AffForm[] for i = 1:3]..., # all afs_...
+    0.0
 )
 
-CPB.add_infeasible_keys!(prob, prob.gfs_bf)
-CPB.add_gfs_keys!(prob, prob.gfs_safe, eachindex(prob.gfs_safe))
-CPB.update_cexs_safe!(prob, xmax, solver)
+CPB.add_keys_bf_infeasible!(prob, eachindex(prob.gfs_bf))
+CPB.add_keys_out_new!(prob, eachindex(prob.gfs_out))
+CPB.update_cexs!(prob, xmax, solver)
 
 @testset "verify safe: r pos" begin
     @test length(prob.keys_todo) == 2

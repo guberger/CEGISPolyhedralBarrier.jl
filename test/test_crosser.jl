@@ -24,8 +24,10 @@ b = [1.0]
 
 prob = CrossingProblem(
     N, A, b,
-    [AffForm([-1.0], 0.0), AffForm([1.0], 1.0)], [AffForm([-0.5], 0.25)],
-    AffForm[], AffForm[]
+    [AffForm([-1.0], 0.0), AffForm([1.0], 1.0)],
+    [AffForm([-0.5], 0.25)],
+    AffForm[],
+    0.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -41,7 +43,7 @@ prob = CrossingProblem(
     [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
     [AffForm([-0.5], 0.25)],
     AffForm[],
-    AffForm[]
+    0.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -57,7 +59,7 @@ prob = CrossingProblem(
     [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
     [AffForm([1.0], -0.25), AffForm([-0.5], 0.25)],
     [AffForm([1.0], -0.25)],
-    AffForm[]
+   0.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -73,7 +75,7 @@ prob = CrossingProblem(
     [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
     [AffForm([1.0], -1.0), AffForm([-0.5], 0.25)],
     [AffForm([1.0], -1.0)],
-    AffForm[]
+    0.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -88,8 +90,8 @@ prob = CrossingProblem(
     N, A, b,
     [AffForm([-1.0], 0.0), AffForm([1.0], -1.0)],
     [AffForm([1.0], -1.0), AffForm([-0.5], 0.25)],
-    AffForm[],
-    [AffForm([-0.5], 0.25)]
+    [AffForm([-0.5], 0.25)],
+    1.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -110,7 +112,7 @@ prob = CrossingProblem(
     [AffForm([-1.0, 0.0], -1.0), AffForm([0.0, 1.0], -1.0)],
     [AffForm([0.0, -1.0], -1.0), AffForm([1.0, 0.0], -1.0)],
     AffForm[],
-    AffForm[]
+    0.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -125,8 +127,8 @@ prob = CrossingProblem(
     N, A, b,
     [AffForm([-1.0, 0.0], -1.0), AffForm([0.0, 1.0], -1.0)],
     [AffForm([0.0, -1.0], -1.0)],
-    AffForm[],
-    [AffForm([1.0, 0.0], -1.0)]
+    [AffForm([1.0, 0.0], -1.0)],
+    1.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
@@ -145,7 +147,7 @@ prob = CrossingProblem(
     [AffForm([-1.0, 0.0], -1.0), AffForm([1.0, 0.0], -2.0)],
     [AffForm([0.0, -1.0], -1.0)],
     [AffForm([0.0, -1.0], -1.0)],
-    AffForm[]
+    0.0
 )
 
 x, r, flag = CPB.find_crosser(prob, xmax, solver)
