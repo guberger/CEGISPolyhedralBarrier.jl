@@ -45,6 +45,7 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
             sep_prob = make_separation_problem!(prob, state)
             af, r = find_separator(sep_prob, βmax, solver)
             if r < prob.ϵ
+                push!(prob.states_outside_new, state)
                 return isreset, false
             else
                 push!(prob.gfs, GenForm(state.loc, af))

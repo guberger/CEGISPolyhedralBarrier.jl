@@ -73,7 +73,6 @@ end
 
 βmax = 1.0
 af, r = CPB.find_separator(prob, βmax, solver)
-display(af)
 
 @testset "compute sep #2.3" begin
     @test r ≈ 3*βmax/5

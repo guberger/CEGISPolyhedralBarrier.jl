@@ -9,11 +9,10 @@ else
 end
 CPB = CEGISPolyhedralBarrier
 AffForm = CPB.AffForm
-PolyFunc = CPB.PolyFunc
-MultiPolyFunc = CPB.MultiPolyFunc
+GenForm = CPB.GenForm
 Piece = CPB.Piece
-System = CPB.System
-Witness = CPB.Witness
+State = CPB.State
+BarrierProblem = CPB.BarrierProblem
 
 function HiGHS._check_ret(ret::Cint) 
     if ret != Cint(0) && ret != Cint(1)
@@ -29,261 +28,157 @@ solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
 ))
 
-#-------------------------------------------------------------------------------
+################################################################################
+## Set 1
+
 N = 1
-M = 1
-pf_dom = PolyFunc([AffForm([-1.0], 3.0), AffForm([1.0], -3.0)])
-A = [1.0;;]
-b = [1.0]
-sys = System([Piece(pf_dom, 1, A, b, 1)])
+pieces = [
+    Piece([AffForm([-1.0], 3.0)], 1, [1.0;;], [1.0], 1),
+]
 
-mlist_init = [[[1.0]]]
+prob = BarrierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-1.0], 0.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -4.0))], # gfs_safe
+    [State(1, [1.0])], # states_init
+    2.0 - eps(2.0), # ϵ
+    1e-9 # δ
+)
 
-mpf_safe = MultiPolyFunc([PolyFunc([AffForm([1.0], -4.0)])])
-mpf_inv = MultiPolyFunc([PolyFunc([AffForm([-1.0], 0.0)])])
-
-wit_trace = Witness[]
-function rec_wit_trace(::Any, ::Any, wit)
-    push!(wit_trace, Witness(
-        copy.(wit.mlist_inside), copy.(wit.mlist_image),
-        copy.(wit.mlist_unknown), copy.(wit.mlist_outside)
-    ))
-end
-
-ϵ = 2.0 - eps(2.0)
-δ = 1e-3
 xmax = 1e2
-tol_dom = 1e-6
 iter_max = 1
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
-status, = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver,
-    tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
-)
-
-display(wit_trace)
-
-@testset "learn lyapunov: max iter" begin
+@testset "learn lyapunov 1: max iter" begin
     @test status == CPB.MAX_ITER_REACHED
-    @test length(wit_trace) == 1
-    @test wit_trace[1].mlist_inside == [[[1]]]
-    @test all(isempty, wit_trace[1].mlist_image)
-    @test all(isempty, wit_trace[1].mlist_unknown)
-    @test all(isempty, wit_trace[1].mlist_outside)
+    @test length(gen_prob.gfs) == 0
+    @test length(gen_prob.states_inside) == 1
+    @test length(gen_prob.states_image) == 0
+    @test length(gen_prob.links_unknown) == 0
+    @test length(gen_prob.links_unknown_new) == 0
+    @test length(gen_prob.states_outside) == 0
+    @test length(gen_prob.states_outside_new) == 1
 end
 
 iter_max = 3
-empty!(wit_trace)
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
-status, mpf, wit_final = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver,
-    tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
-)
-
-@testset "learn lyapunov: feasible" begin
+@testset "learn lyapunov 1: found" begin
     @test status == CPB.BARRIER_FOUND
-    @test length(wit_trace) == 2
-    #1
-    @test wit_trace[1].mlist_inside == [[[1]]]
-    @test all(isempty, wit_trace[1].mlist_image)
-    @test all(isempty, wit_trace[1].mlist_unknown)
-    @test all(isempty, wit_trace[1].mlist_outside)
-    #2
-    @test wit_trace[2].mlist_inside[1] ≈ [[1]]
-    @test all(isempty, wit_trace[2].mlist_image)
-    @test all(isempty, wit_trace[2].mlist_unknown)
-    @test wit_trace[2].mlist_outside[1] ≈ [[3]]
+    @test length(gen_prob.gfs) == 1
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -1), gen_prob.gfs
+    )
+    @test length(gen_prob.states_inside) == 1
+    @test length(gen_prob.states_image) == 0
+    @test length(gen_prob.links_unknown) == 0
+    @test length(gen_prob.links_unknown_new) == 0
+    @test length(gen_prob.states_outside) == 1
+    @test length(gen_prob.states_outside_new) == 0
 end
 
-pf_dom = PolyFunc([AffForm([-1.0], 3.0), AffForm([1.0], -3.0)])
-A = [1.0;;]
-b = [1.0]
-piece1 = Piece(pf_dom, 1, A, b, 1)
-pf_dom = PolyFunc([AffForm([-1.0], 1.0), AffForm([1.0], -1.0)])
-A = [0.0;;]
-b = [3.5]
-piece2 = Piece(pf_dom, 1, A, b, 1)
-sys = System([piece1, piece2])
+################################################################################
+## Set 2
 
-ϵ = 1e-4
-δ = 1e-3
-xmax = 1e2
-tol_dom = 1e-6
-iter_max = 3
-empty!(wit_trace)
-
-status, mpf, wit_final = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver,
-    tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
-)
-
-@testset "learn lyapunov: rad too small" begin
-    @test status == CPB.BARRIER_INFEASIBLE
-    @test length(wit_trace) == 2
-    #1
-    @test wit_trace[1].mlist_inside[1] ≈ [[1]]
-    @test wit_trace[1].mlist_image[1] ≈ [[3.5]]
-    @test all(isempty, wit_trace[1].mlist_unknown)
-    @test all(isempty, wit_trace[1].mlist_outside)
-    #2
-    @test wit_trace[2].mlist_inside[1] ≈ [[1]]
-    @test wit_trace[2].mlist_image[1] ≈ [[3.5]]
-    @test all(isempty, wit_trace[2].mlist_unknown)
-    @test wit_trace[2].mlist_outside[1] ≈ [[3]]
-end
-
-#-------------------------------------------------------------------------------
 N = 1
-M = 2
-pf_dom = PolyFunc([AffForm([-1.0], 3.0), AffForm([1.0], -3.0)])
-A = [0.5;;]
-b = [2.5]
-piece1 = Piece(pf_dom, 1, A, b, 1)
-pf_dom = PolyFunc([AffForm([-1.0], 1.0), AffForm([1.0], -1.0)])
-A = [0.0;;]
-b = [2.5]
-piece2 = Piece(pf_dom, 2, A, b, 1)
-pf_dom = PolyFunc([AffForm([1.0], -0.0)])
-A = [0.0;;]
-b = [0.9]
-piece3 = Piece(pf_dom, 2, A, b, 2)
-sys = System([piece1, piece2, piece3])
+pieces = [
+    Piece([AffForm([-1.0], 3.0), AffForm([1.0], -3.0)], 1, [1.0;;], [1.5], 1),
+    Piece([AffForm([-1.0], 1.0), AffForm([1.0], -1.0)], 1, [0.0;;], [3.5], 1),
+]
 
-mlist_init = [[[1.0]], [[0.0]]]
-
-mpf_safe = MultiPolyFunc([
-    PolyFunc([AffForm([1.0], -4.0)]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
-mpf_inv = MultiPolyFunc([
-    PolyFunc([AffForm([-1.0], 0.0)]),
-    PolyFunc(AffForm{Vector{Float64},Float64}[])
-])
-
-ϵ = 100.0
-δ = 1e-3
-xmax = 1e2
-tol_dom = 1e-6
-iter_max = 4
-empty!(wit_trace)
-
-status, mpf, wit_final = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver,
-    tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
+prob = BarrierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-1.0], 0.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -4.0))], # gfs_safe
+    [State(1, [1.0])], # states_init
+    1e-4, # ϵ
+    1e-9, # δ
 )
 
-@testset "learn lyapunov: unknown -> outside" begin
+xmax = 1e2
+iter_max = 3
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
+
+@testset "learn lyapunov 2: infeasible" begin
     @test status == CPB.BARRIER_INFEASIBLE
-    @test length(wit_trace) == 3
-    #1-2
-    for i = 1:2
-        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0]]]
-        @test isempty(wit_trace[i].mlist_image[1])
-        @test wit_trace[i].mlist_image[2] ≈ [[0.9]]
-        @test all(isempty, wit_trace[i].mlist_unknown)
-        @test all(isempty, wit_trace[i].mlist_outside)
-    end
-    #3
-    @test wit_trace[3].mlist_inside ≈ [[[1]], [[0]]]
-    @test isempty(wit_trace[3].mlist_image[1])
-    @test wit_trace[3].mlist_image[2] ≈ [[0.9]]
-    @test all(isempty, wit_trace[3].mlist_unknown)
-    @test wit_trace[3].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[3].mlist_outside[2])
+    @test length(gen_prob.states_inside) == 2
+    @test length(gen_prob.states_image) == 1
+    @test length(gen_prob.states_outside_new) == 1
 end
 
-ϵ = 1e-2
-δ = 1e-3
+################################################################################
+## Set 3
+
+N = 1
+pieces = [
+    Piece([AffForm([-1.0], 3.0), AffForm([1.0], -3.0)], 1, [0.5;;], [2.5], 1),
+    Piece([AffForm([-1.0], 1.0), AffForm([1.0], -1.0)], 2, [0.0;;], [2.5], 1),
+    Piece([AffForm([1.0], 0.0)], 2, [0.0;;], [0.9], 2),
+]
+
+prob = BarrierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-1.0], 0.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -4.0))], # gfs_safe
+    [State(1, [1.0]), State(2, [0.0])], # states_init
+    1e2, # ϵ
+    1e-3, # δ
+)
+
 xmax = 1e2
-tol_dom = 1e-6
 iter_max = 4
-empty!(wit_trace)
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
-status, mpf, wit_final = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver,
-    tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
-)
-
-@testset "learn lyapunov: unknown! gets excluded" begin
-    @test status == CPB.BARRIER_FOUND
-    @test length(wit_trace) == 4
-    #1-2
-    for i = 1:2
-        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0]]]
-        @test isempty(wit_trace[i].mlist_image[1])
-        @test wit_trace[i].mlist_image[2] ≈ [[0.9]]
-        @test all(isempty, wit_trace[i].mlist_unknown)
-        @test all(isempty, wit_trace[i].mlist_outside)
-    end
-    #3
-    @test wit_trace[3].mlist_inside ≈ [[[1]], [[0]]]
-    @test isempty(wit_trace[3].mlist_image[1])
-    @test wit_trace[3].mlist_image[2] ≈ [[0.9]]
-    @test all(isempty, wit_trace[3].mlist_unknown)
-    @test wit_trace[3].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[3].mlist_outside[2])
-    #4
-    @test wit_trace[4].mlist_inside ≈ [[[1]], [[0]]]
-    @test isempty(wit_trace[4].mlist_image[1])
-    @test wit_trace[4].mlist_image[2] ≈ [[0.9]]
-    @test isempty(wit_trace[4].mlist_unknown[1])
-    @test wit_trace[4].mlist_unknown[2] ≈ [[1]]
-    @test wit_trace[4].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[4].mlist_outside[2])
+@testset "learn lyapunov 3: infeasible" begin
+    @test status == CPB.BARRIER_INFEASIBLE
+    @test length(gen_prob.states_inside) == 2
+    @test length(gen_prob.states_image) == 0
+    @test length(gen_prob.states_outside_new) == 1
 end
 
-ϵ = 1e-1
-δ = 1e-3
-xmax = 1e2
-tol_dom = 1e-6
-iter_max = 6
-empty!(wit_trace)
-
-status, mpf, wit_final = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver,
-    tol_dom=tol_dom, xmax=xmax, callback_fcn=rec_wit_trace
+prob = BarrierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-1.0], 0.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -4.0))], # gfs_safe
+    [State(1, [1.0]), State(2, [0.0])], # states_init
+    1e-2, # ϵ
+    1e-3, # δ
 )
 
-@testset "learn lyapunov: unknown! gets included" begin
+xmax = 1e2
+iter_max = 5
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
+
+@testset "learn lyapunov 3: found 1e-2" begin
     @test status == CPB.BARRIER_FOUND
-    @test length(wit_trace) == 6
-    #1-2
-    for i = 1:2
-        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0]]]
-        @test isempty(wit_trace[i].mlist_image[1])
-        @test wit_trace[i].mlist_image[2] ≈ [[0.9]]
-        @test all(isempty, wit_trace[i].mlist_unknown)
-        @test all(isempty, wit_trace[i].mlist_outside)
-    end
-    #3
-    @test wit_trace[3].mlist_inside ≈ [[[1]], [[0]]]
-    @test isempty(wit_trace[3].mlist_image[1])
-    @test wit_trace[3].mlist_image[2] ≈ [[0.9]]
-    @test all(isempty, wit_trace[3].mlist_unknown)
-    @test wit_trace[3].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[3].mlist_outside[2])
-    #4
-    @test wit_trace[4].mlist_inside ≈ [[[1]], [[0]]]
-    @test isempty(wit_trace[4].mlist_image[1])
-    @test wit_trace[4].mlist_image[2] ≈ [[0.9]]
-    @test isempty(wit_trace[4].mlist_unknown[1])
-    @test wit_trace[4].mlist_unknown[2] ≈ [[1]]
-    @test wit_trace[4].mlist_outside[1] ≈ [[3]]
-    @test isempty(wit_trace[4].mlist_outside[2])
-    #5-6
-    for i = 5:6
-        @test wit_trace[i].mlist_inside ≈ [[[1]], [[0], [1]]]
-        @test wit_trace[i].mlist_image ≈ [[[2.5]], [[0.9]]]
-        @test all(isempty, wit_trace[i].mlist_unknown)
-        @test wit_trace[i].mlist_outside[1] ≈ [[3]]
-        @test isempty(wit_trace[i].mlist_outside[2])
-    end
+    @test length(gen_prob.gfs) ≥ 2
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -1), gen_prob.gfs
+    )
+    @test any(
+        gf -> (gf.loc == 2 && gf.af.a ≈ [1] && gf.af.β ≈ -0.95), gen_prob.gfs
+    )
+end
+
+prob = BarrierProblem(
+    N, pieces,
+    [GenForm(1, AffForm([-1.0], 0.0))], # gfs_inv
+    [GenForm(1, AffForm([1.0], -4.0))], # gfs_safe
+    [State(1, [1.0]), State(2, [0.0])], # states_init
+    1e-1, # ϵ
+    1e-3, # δ
+)
+
+xmax = 1e2
+iter_max = 5
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
+
+@testset "learn lyapunov 3: found 1e-3" begin
+    @test status == CPB.BARRIER_FOUND
+    @test length(gen_prob.gfs) ≥ 1
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -2.75), gen_prob.gfs
+    )
 end
 
 nothing

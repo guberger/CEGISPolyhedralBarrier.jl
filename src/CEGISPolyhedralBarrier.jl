@@ -9,7 +9,7 @@ struct AffForm
 end
 _eval(af::AffForm, x) = dot(af.a, x) + af.β
 margin(af::AffForm, atol, rtol) = atol + rtol*norm(af.a, Inf)
-isless_approx(af::AffForm, x, atol, rtol) = _eval(af, x) ≤ margin(af, atol, rtol)
+isless_margin(af::AffForm, x, atol, rtol) = _eval(af, x) ≤ margin(af, atol, rtol)
 
 struct GenForm
     loc::Int
