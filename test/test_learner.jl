@@ -14,16 +14,6 @@ Piece = CPB.Piece
 State = CPB.State
 BarrierProblem = CPB.BarrierProblem
 
-function HiGHS._check_ret(ret::Cint) 
-    if ret != Cint(0) && ret != Cint(1)
-        error(
-            "Encountered an error in HiGHS (Status $(ret)). Check the log " * 
-            "for details.", 
-        )
-    end 
-    return 
-end 
-
 solver() = Model(optimizer_with_attributes(
     HiGHS.Optimizer, "output_flag"=>false
 ))

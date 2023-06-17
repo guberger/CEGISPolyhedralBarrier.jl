@@ -1,0 +1,8 @@
+# Generation
+* Do not separate points that are already excluded by previous separator
+  i.e., remove redundant separators (only when reset)
+* Separate safe with margin (easy: just compute distance of safe face with
+  inside and image points)
+# Verification
+* Maximize margin outside for contraction verifier (then: is counterexample only
+  if margin > 0)

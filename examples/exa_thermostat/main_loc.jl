@@ -1,31 +1,8 @@
 module ExampleThermostat
 
-using LinearAlgebra
-using JuMP
-using Gurobi
-using PyPlot
-
-include("../../src/CEGISPolyhedralBarrier.jl")
-CPB = CEGISPolyhedralBarrier
-AffForm = CPB.AffForm
-PolyFunc = CPB.PolyFunc
-MultiPolyFunc = CPB.MultiPolyFunc
-Piece = CPB.Piece
-System = CPB.System
-Witness = CPB.Witness
-const _AT = AffForm{Vector{Float64},Float64}
-const _PT = PolyFunc{_AT}
-
-include("../utils/plotting2D.jl")
-
-const GUROBI_ENV = Gurobi.Env()
-solver() = Model(optimizer_with_attributes(
-    () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
-))
+include("../utils/toolkit.jl")
 
 N = 2
-M = 4
-
 Tlo = 0.0
 Ilo = 15.0
 Slo = 18.0
@@ -38,7 +15,7 @@ cf = 1.0
 dt = 0.03
 Tstab = 1.5 - dt
 
-locs = [[1, 3], [2, 4]]
+mode_to_locs = [[1, 3], [2, 4]]
 guards_temp = [
     [AffForm([-1.0, 0.0], Llo), AffForm([1.0, 0.0], -Llo)],
     [AffForm([-1.0, 0.0], Lup), AffForm([1.0, 0.0], -Lup)]
@@ -51,13 +28,15 @@ bs = [
     [[Tup*(1 - α), dt], [Tup*(1 - α), Tstab + dt]]
 ]
 
-pieces = Piece{_PT,Matrix{Float64},Vector{Float64}}[]
+pieces = Piece[]
 for (i1, j1, i2, j2) in Iterators.product(1:2, 1:2, 1:2, 1:2)
     j1 > j2 && continue
-    pf_dom = PolyFunc([guards_temp[i1][i2], guards_time[j2]])
-    push!(pieces, Piece(pf_dom, locs[i1][j1], As[j2], bs[i2][j2], locs[i2][j2]))
+    afs_dom = [guards_temp[i1][i2], guards_time[j2]]
+    push!(pieces, Piece(afs_dom,
+                        mode_to_locs[i1][j1],
+                        As[j2], bs[i2][j2],
+                        mode_to_locs[i2][j2]))
 end
-sys = System(pieces)
 
 # simulation
 fig = figure(0, figsize=(10, 5))
@@ -86,48 +65,41 @@ for istep = 1:nstep
     marker = loc ∈ (1, 2) ? "x" : "."
     ax.plot((istep - 1)*dt, x[1], marker=marker, ms=5, c=color)
     istep == nstep && break
-    for piece in sys.pieces
-        loc != piece.loc1 && continue
-        !CPB._prox(piece.pf_dom, x, 0) && continue
-        loc = piece.loc2
-        x = piece.A*x + piece.b
-        break
+    flag = false
+    for piece in pieces
+        if loc == piece.loc_src && 
+           all(af -> isless_margin(af, x, 0, 0), piece.afs_dom)
+            flag = true
+            loc = piece.loc_dst
+            x = piece.A*x + piece.b
+            break
+        end
     end
+    @assert flag
 end
 
-mpf_inv = MultiPolyFunc([PolyFunc(_AT[]) for loc = 1:4])
-
-mpf_safe = MultiPolyFunc([
-    [PolyFunc([
-        AffForm([-1.0, 0.0], Tlo), AffForm([1.0, 0.0], -Tup),
-        AffForm([0.0, -1.0], 0.0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
-    ]) for loc = 1:2]...,
-    [PolyFunc([
-        AffForm([-1.0, 0.0], Slo), AffForm([1.0, 0.0], -Sup),
-        AffForm([0.0, -1.0], 0.0), AffForm([0.0, 1.0], -(Tstab + 2*dt))
-    ]) for loc = 1:2]...
-])
-# empty!(mpf_safe.pfs[3].afs)
-# empty!(mpf_safe.pfs[4].afs)
-
-mlist_init = [
-    [[Ilo, 0.0], [Iup, 0.0]],
-    [[Ilo, 0.0], [Iup, 0.0]],
-    Vector{Float64}[],
-    Vector{Float64}[]
-]
-
-ϵ = dt/3
-display(ϵ)
-δ = 1e-8
-iter_max = Inf
-
-status, mpf, wit = CPB.learn_lyapunov!(
-    sys, mpf_safe, mpf_inv, mlist_init, ϵ, δ, iter_max,
-    M, N, solver, solver, do_print=true
+prob = BarrierProblem(
+    N, pieces,
+    State[], # gfs_inv
+    [
+        [GenForm(loc, AffForm([0.0, -1.0], 0.0)) for loc = 1:4]...,
+        [GenForm(loc, AffForm([0.0, 1.0], -(Tstab + 2*dt))) for loc = 1:4]...,
+        [GenForm(loc, AffForm([-1.0, 0.0], Tlo)) for loc in (1, 2)]...,
+        [GenForm(loc, AffForm([1.0, 0.0], -Tup)) for loc in (1, 2)]...,
+        [GenForm(loc, AffForm([-1.0, 0.0], Slo)) for loc in (3, 4)]...,
+        [GenForm(loc, AffForm([1.0, 0.0], -Sup)) for loc in (3, 4)]...
+    ], # gfs_safe
+    [
+        [State(loc, [Ilo, 0.0]) for loc in (1, 2)]...,
+        [State(loc, [Iup, 0.0]) for loc in (1, 2)]...
+    ], # states_init
+    dt/3, # ϵ
+    1e-8 # δ
 )
 
-display(status)
+iter_max = Inf
+status, gen_prob = CPB.find_barrier(prob, iter_max, solver, do_print=false)
+@assert status == CPB.BARRIER_FOUND
 
 # Illustration
 fig = figure(1, figsize=(15, 8))
@@ -146,87 +118,36 @@ for ax in ax_
     ax.tick_params(axis="both", labelsize=15)
 end
 
-for (loc, pf) in enumerate(mpf_safe.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="none", fa=0, ec="red", ew=1.5)
+for loc = 1:4
+    plot_level2D!(ax_[loc], prob.gfs_safe, loc, lims,
+                  fc="none", fa=0, ec="red", ew=1.5)
 end
 
-for (loc, pf) in enumerate(mpf_inv.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="none", ec="blue")
+for loc = 1:4
+    plot_level2D!(ax_[loc], prob.gfs_inv, loc, lims,
+                  fc="none", ec="blue")
 end
 
-for (loc, pf) in enumerate(mpf.pfs)
-    plot_level!(ax_[loc], pf.afs, lims, fc="gold", ec="gold", fa=0.5, ew=2.5)
+for loc = 1:4
+    plot_level2D!(ax_[loc], gen_prob.gfs, loc, lims,
+                  fc="gold", ec="gold", fa=0.5, ew=2.5)
 end
 
-for (loc, points) in enumerate(wit.mlist_inside)
-    for point in points
-        plot_point!(ax_[loc], point, mc="blue")
-    end
+for state in gen_prob.states_inside
+    plot_point!(ax_[state.loc], state.x, mc="blue")
 end
 
-for (loc, points) in enumerate(wit.mlist_image)
-    for point in points
-        plot_point!(ax_[loc], point, mc="purple")
-    end
+for state in gen_prob.states_image
+    plot_point!(ax_[state.loc], state.x, mc="purple")
 end
 
-for (loc, points) in enumerate(wit.mlist_outside)
-    for point in points
-        plot_point!(ax_[loc], point, mc="red")
-    end
+for state in gen_prob.states_outside
+    plot_point!(ax_[state.loc], state.x, mc="red")
 end
 
-for (loc, points) in enumerate(wit.mlist_unknown)
-    for point in points
-        plot_point!(ax_[loc], point, mc="orange")
-    end
+for link in gen_prob.links_unknown
+    state = link.src
+    plot_point!(ax_[state.loc], state.x, mc="orange")
 end
-
-f = open(string(@__DIR__, "/witnesses.txt"), "w")
-println(f, "image")
-for (loc, points_image) in enumerate(wit.mlist_image)
-    str = string(loc, ":")
-    for point in points_image
-        str = string(str, "(", point[1], ",", point[2], ")")
-    end
-    println(f, str)
-end
-println(f, "unknown")
-for (loc, points_unknown) in enumerate(wit.mlist_unknown)
-    str = string(loc, ":")
-    for point in points_unknown
-        str = string(str, "(", point[1], ",", point[2], ")")
-    end
-    println(f, str)
-end
-println(f, "outside")
-for (loc, points_outside) in enumerate(wit.mlist_outside)
-    str = string(loc, ":")
-    for point in points_outside
-        str = string(str, "(", point[1], ",", point[2], ")")
-    end
-    println(f, str)
-end
-println(f, "invariant")
-zip_iter = zip(mpf_safe.pfs, mpf_inv.pfs, mpf.pfs)
-for (loc, (pf_safe, pf_inv, pf)) in enumerate(zip_iter)
-    str = string(loc, ":")
-    afs = union(pf_safe.afs, pf_inv.afs, pf.afs)
-    A = zeros(length(afs), 2)
-    b = zeros(length(afs))
-    for (i, af) in enumerate(afs)
-        A[i, 1], A[i, 2] = (af.a...,)
-        b[i] = -af.β
-    end
-    verts = compute_vertices_hrep(A, b)
-    for vert in verts
-        str = string(str, "(", vert[1], ",", vert[2], ")")
-    end
-    if !isempty(verts)
-        str = string(str, "(", verts[1][1], ",", verts[1][2], ")")
-    end
-    println(f, str)
-end
-close(f)
 
 end # module
