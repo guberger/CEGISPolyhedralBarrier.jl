@@ -54,28 +54,17 @@ end
 ax.set_ylabel("temperature")
 
 T0 = Tlo
-x = [T0, 0.0]
-loc = 2
+state = State(2, [T0, 0.0])
 tol_dom = 1e-8
 
 for istep = 1:nstep
-    global x, loc
-    @assert loc ∈ (1, 2, 3, 4)
-    color = loc ∈ (1, 3) ? "blue" : "red"
-    marker = loc ∈ (1, 2) ? "x" : "."
-    ax.plot((istep - 1)*dt, x[1], marker=marker, ms=5, c=color)
+    global state
+    @assert state.loc ∈ (1, 2, 3, 4)
+    color = state.loc ∈ (1, 3) ? "blue" : "red"
+    marker = state.loc ∈ (1, 2) ? "x" : "."
+    ax.plot((istep - 1)*dt, state.x[1], marker=marker, ms=5, c=color)
     istep == nstep && break
-    flag = false
-    for piece in pieces
-        if loc == piece.loc_src && 
-           all(af -> isless_margin(af, x, 0, 0), piece.afs_dom)
-            flag = true
-            loc = piece.loc_dst
-            x = piece.A*x + piece.b
-            break
-        end
-    end
-    @assert flag
+    state = next_state(pieces, state, tol_dom)
 end
 
 prob = BarrierProblem(
@@ -98,7 +87,7 @@ prob = BarrierProblem(
 )
 
 iter_max = Inf
-status, gen_prob = CPB.find_barrier(prob, iter_max, solver, do_print=false)
+status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver, do_print=false)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration

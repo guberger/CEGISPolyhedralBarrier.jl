@@ -20,6 +20,17 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
+_isin(afs, x, rtol) = all(af -> isless_margin(af, x, 0, rtol), afs)
+
+function next_state(pieces, state, tol_dom)
+    for piece in pieces
+        if piece.loc_src == state.loc && _isin(piece.afs_dom, state.x, tol_dom)
+            return State(piece.loc_dst, piece.A*state.x + piece.b)
+        end
+    end
+    return State(-1, fill(NaN, length(state.x)))
+end
+
 #-------------------------------------------------------------------------------
 function compute_vertices_hrep(A, b)
     @assert (size(A, 1),) == size(b)

@@ -17,7 +17,7 @@ Tstab = 1.5 - dt
 
 γ = 100.0
 hots = [[j == i ? 1.0 : 0.0 for j = 1:6] for i = 1:6]
-loc_points = [
+loc_xs = [
     [[k == 2*(j - 1) + i ? γ : 0.0 for k = 1:4] for j = 1:2] for i = 1:2
 ]
 guards_temp = [
@@ -32,16 +32,16 @@ bs_ = [
     [[Tlo*(1 - α), dt], [Tlo*(1 - α), Tstab + dt]],
     [[Tup*(1 - α), dt], [Tup*(1 - α), Tstab + dt]]
 ]
-bs = [[[bs_[i][j]..., loc_points[i][j]...] for j = 1:2] for i = 1:2]
+bs = [[[bs_[i][j]..., loc_xs[i][j]...] for j = 1:2] for i = 1:2]
 
 pieces = Piece[]
 for (i1, j1, i2, j2) in Iterators.product(1:2, 1:2, 1:2, 1:2)
     j1 > j2 && continue
     afs_dom = [guards_temp[i1][i2], guards_time[j2]]
-    loc_point = loc_points[i1][j1]
+    loc_x = loc_xs[i1][j1]
     for i = 3:6
-        push!(afs_dom, AffForm(+hots[i], -loc_point[i - 2]))
-        push!(afs_dom, AffForm(-hots[i], +loc_point[i - 2]))
+        push!(afs_dom, AffForm(+hots[i], -loc_x[i - 2]))
+        push!(afs_dom, AffForm(-hots[i], +loc_x[i - 2]))
     end
     push!(pieces, Piece(afs_dom, 1, As[j2], bs[i2][j2], 1))
 end
@@ -61,36 +61,25 @@ for y in (Tlo, Slo, Llo, Lup, Sup, Tup)
 end
 ax.set_ylabel("temperature")
 
-T0 = Tlo
-x = [T0, 0.0, loc_points[1][1]...]
+state = State(1, [Tlo, 0.0, loc_xs[1][1]...])
 tol_dom = 1e-8
 
 for istep = 1:nstep
-    global x
-    T = x[1]
-    loc_point = x[3:6]
-    @assert any(i -> any(j -> norm(loc_point - loc_points[i][j]) < 1e-5, 1:2), 1:2)
-    color = any(j -> norm(loc_point - loc_points[1][j]) < 1e-5, 1:2) ? "blue" : "red"
-    marker = any(i -> norm(loc_point - loc_points[i][1]) < 1e-5, 1:2) ? "x" : "."
-    ax.plot((istep - 1)*dt, T, marker=marker, ms=5, c=color)
+    global state
+    @assert state.loc == 1
+    loc_x = state.x[3:6]
+    @assert any(i -> any(j -> norm(loc_x - loc_xs[i][j]) < 1e-5, 1:2), 1:2)
+    color = any(j -> norm(loc_x - loc_xs[1][j]) < 1e-5, 1:2) ? "blue" : "red"
+    marker = any(i -> norm(loc_x - loc_xs[i][1]) < 1e-5, 1:2) ? "x" : "."
+    ax.plot((istep - 1)*dt, state.x[1], marker=marker, ms=5, c=color)
     istep == nstep && break
-    flag = false
-    for piece in pieces
-        @assert piece.loc_src == piece.loc_dst == 1
-        if all(af -> isless_margin(af, x, 0, 0), piece.afs_dom)
-            flag = true
-            loc = piece.loc_dst
-            x = piece.A*x + piece.b
-            break
-        end
-    end
-    @assert flag
+    state = next_state(pieces, state, tol_dom)
 end
 
 inits = [[Ilo, 0.0], [Iup, 0.0]]
 xlist_init = Vector{Float64}[]
 for (i, k) in Iterators.product(1:2, 1:2)
-    push!(xlist_init, [inits[k]..., loc_points[i][1]...])
+    push!(xlist_init, [inits[k]..., loc_xs[i][1]...])
 end
 
 prob = BarrierProblem(
@@ -108,8 +97,8 @@ prob = BarrierProblem(
 )
 
 iter_max = Inf
-status, gen_prob = CPB.find_barrier(prob, iter_max, solver,
-                                    do_print=false, βmax = 0.0)
+status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver,
+                                          do_print=false, βmax = 0.0)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration
@@ -129,26 +118,26 @@ for ax in ax_
     ax.tick_params(axis="both", labelsize=15)
 end
 
-loc_points_ = [loc_points[1]..., loc_points[2]...]
+loc_xs_ = [loc_xs[1]..., loc_xs[2]...]
 
-for (loc, loc_point) in enumerate(loc_points_)
+for (loc, loc_x) in enumerate(loc_xs_)
     gfs = [
         GenForm(1, AffForm(
-            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_point*1.0)
+            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_x*1.0)
         ))
         for gf in prob.gfs_safe
     ]
     plot_level2D!(ax_[loc], gfs, 1, lims, fc="none", fa=0, ec="red", ew=1.5)
     gfs = [
         GenForm(1, AffForm(
-            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_point*1.0)
+            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_x*1.0)
         ))
         for gf in prob.gfs_inv
     ]
     plot_level2D!(ax_[loc], gfs, 1, lims, fc="none", ec="blue")
     gfs = [
         GenForm(1, AffForm(
-            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_point*1.0)
+            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_x*1.0)
         ))
         for gf in gen_prob.gfs
     ]
@@ -156,7 +145,7 @@ for (loc, loc_point) in enumerate(loc_points_)
 end
 
 find_loc(state) = findfirst(
-    loc_point -> norm(loc_point - state.x[3:6]) < 1e-5, loc_points_
+    loc_x -> norm(loc_x - state.x[3:6]) < 1e-5, loc_xs_
 )::Int
 
 for state in gen_prob.states_inside
