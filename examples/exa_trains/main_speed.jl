@@ -64,11 +64,14 @@ for Nt = 1:4
     ## Algo illustration
     fig = figure(1 + Nt, figsize=(10, 5))
     ax = fig.add_subplot()
+    ax2 = ax.twinx()
+    ax2.set_yscale("log")
 
     ax.plot(rec.ninside)
     ax.plot(rec.nimage)
     ax.plot(rec.nunknown)
     ax.plot(rec.noutside)
+    ax2.plot(rec.rs, ls="dashed", lw=2, c="k")
 end
 
 end # module
