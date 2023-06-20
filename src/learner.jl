@@ -68,7 +68,7 @@ function find_cex_max(cexs::Dict{CexKey,CexVal})
     return keyopt, rmax
 end
 
-struct PrintRecorder
+struct Recorder
     ninside::Vector{Int}
     nimage::Vector{Int}
     nunknown::Vector{Int}
@@ -82,20 +82,20 @@ struct PrintRecorder
 end
 
 function init_recorder()
-    return PrintRecorder(
+    return Recorder(
         [Int[] for i = 1:6]..., Char[], [Int[] for i = 1:2]..., Float64[]
     )
 end
 
-function reset_recorder!(rec::PrintRecorder)
-    empty!(rec.ninside); empty!(rec.nimage);
-    empty!(rec.nunknown); empty!(rec.noutside);
-    empty!(rec.ngf); empty!(rec.ngf_new);
-    empty!(rec.gen_res);
-    empty!(rec.nkey); empty!(rec.nkey_todo); empty!(rec.rs)
-end
+# function reset_recorder!(rec::Recorder)
+#     empty!(rec.ninside); empty!(rec.nimage);
+#     empty!(rec.nunknown); empty!(rec.noutside);
+#     empty!(rec.ngf); empty!(rec.ngf_new);
+#     empty!(rec.gen_res);
+#     empty!(rec.nkey); empty!(rec.nkey_todo); empty!(rec.rs)
+# end
 
-function update_recorder!(rec::PrintRecorder, prob::GeneratorProblem)
+function update_recorder!(rec::Recorder, prob::GeneratorProblem)
     push!(rec.ninside, length(prob.states_inside))
     push!(rec.nimage, length(prob.states_image))
     push!(rec.nunknown, length(prob.links_unknown))
@@ -104,27 +104,27 @@ function update_recorder!(rec::PrintRecorder, prob::GeneratorProblem)
     push!(rec.ngf_new, length(prob.indices_new))
 end
 
-function update_recorder!(rec::PrintRecorder, prob::VerifierProblem)
+function update_recorder!(rec::Recorder, prob::VerifierProblem)
     push!(rec.nkey, length(prob.cexs))
     push!(rec.nkey_todo, length(prob.keys_todo))
 end
 
-function print_algo_state(iter::Int, rec::PrintRecorder)
+function print_record(iter::Int, rec::Recorder, niter::Int)
+    nrs = length(rec.rs)
     print(
         "Iter: ", iter, "\n",
-        " - ninside: ", rec.ninside, "\n",
-        " - nimage: ", rec.nimage, "\n",
-        " - nunknown: ", rec.nunknown, "\n",
-        " - noutside: ", rec.noutside, "\n",
-        " - ngf: ", rec.ngf, "\n",
-        " - ngf_new: ", rec.ngf_new, "\n",
-        " - gen_res: ", rec.gen_res, "\n",
-        " - nkey: ", rec.nkey, "\n",
-        " - nkey_todo: ", rec.nkey_todo, "\n"
+        " - ninside: ", rec.ninside[end-niter+1:end], "\n",
+        " - nimage: ", rec.nimage[end-niter+1:end], "\n",
+        " - nunknown: ", rec.nunknown[end-niter+1:end], "\n",
+        " - noutside: ", rec.noutside[end-niter+1:end], "\n",
+        " - ngf: ", rec.ngf[end-niter+1:end], "\n",
+        " - ngf_new: ", rec.ngf_new[end-niter+1:end], "\n",
+        " - gen_res: ", rec.gen_res[end-niter+1:end], "\n",
+        " - nkey: ", rec.nkey[end-niter+1:end], "\n",
+        " - nkey_todo: ", rec.nkey_todo[end-niter+1:end], "\n",
+        " - rs: ", minimum(i -> rec.rs[i], nrs-niter+1:nrs),
+        " -- ", maximum(i -> rec.rs[i], nrs-niter+1:nrs), "\n"
     )
-    if !isempty(rec.rs)
-        print(" - rs: ", minimum(rec.rs), " -- ", maximum(rec.rs), "\n")
-    end
 end
 
 ## Learn Barrier
@@ -185,26 +185,27 @@ function find_barrier(prob::BarrierProblem,
         end
 
         if print_period > 0 && mod(iter, print_period) == 0
-            print_algo_state(iter, rec)
-            reset_recorder!(rec)
+            print_record(iter, rec, print_period)
         end
     end
 
-    print_algo_state(iter, rec)
+    if mod(iter, print_period) > 0
+        print_record(iter, rec, mod(iter, print_period))
+    end
 
     if isfound
         println("Valid CLF: terminated")
-        return BARRIER_FOUND, gen_prob
+        return BARRIER_FOUND, gen_prob, rec
     end
 
     if !issuccess
         println("No valid CLF: terminated")
-        return BARRIER_INFEASIBLE, gen_prob
+        return BARRIER_INFEASIBLE, gen_prob, rec
     end
 
     if iter ≥ iter_max
         println("\nMax iter exceeded: ", iter)
-        return MAX_ITER_REACHED, gen_prob
+        return MAX_ITER_REACHED, gen_prob, rec
     end
 
     error("Something bad")

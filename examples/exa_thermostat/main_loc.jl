@@ -87,8 +87,8 @@ prob = BarrierProblem(
 )
 
 iter_max = Inf
-status, gen_prob = @time CPB.find_barrier(prob, iter_max,
-                                          solver, print_period=20)
+status, gen_prob, rec = @time CPB.find_barrier(prob, iter_max,
+                                               solver, print_period=10)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration
@@ -139,5 +139,14 @@ for link in gen_prob.links_unknown
     state = link.src
     plot_point!(ax_[state.loc], state.x, mc="orange")
 end
+
+## Algo illustration
+fig = figure(2, figsize=(10, 5))
+ax = fig.add_subplot()
+
+ax.plot(rec.ninside)
+ax.plot(rec.nimage)
+ax.plot(rec.nunknown)
+ax.plot(rec.noutside)
 
 end # module

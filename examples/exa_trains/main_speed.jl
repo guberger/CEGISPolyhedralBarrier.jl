@@ -53,14 +53,22 @@ end
 iter_max = Inf
 # iter_max = 5
 
-for Nt = 1:5
+for Nt = 1:4
     prob = build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
     println("# pieces: ", length(prob.pieces))
     println("# initial states: ", length(prob.states_init))
-    status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver,
-                                              print_period=10)
+    status, gen_prob, rec = @time CPB.find_barrier(prob, iter_max, solver,
+                                                   print_period=10)
     display(status)
     @assert Int(status) ∈ (1, 3)
+    ## Algo illustration
+    fig = figure(1 + Nt, figsize=(10, 5))
+    ax = fig.add_subplot()
+
+    ax.plot(rec.ninside)
+    ax.plot(rec.nimage)
+    ax.plot(rec.nunknown)
+    ax.plot(rec.noutside)
 end
 
 end # module
