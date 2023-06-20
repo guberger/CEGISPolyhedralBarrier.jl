@@ -39,20 +39,6 @@ xmax = 1e2
 iter_max = 1
 status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
-@testset "learn lyapunov 1: max iter" begin
-    @test status == CPB.MAX_ITER_REACHED
-    @test length(gen_prob.gfs) == 0
-    @test length(gen_prob.states_inside) == 1
-    @test length(gen_prob.states_image) == 0
-    @test length(gen_prob.links_unknown) == 0
-    @test length(gen_prob.links_unknown_new) == 0
-    @test length(gen_prob.states_outside) == 0
-    @test length(gen_prob.states_outside_new) == 1
-end
-
-iter_max = 3
-status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
-
 @testset "learn lyapunov 1: found" begin
     @test status == CPB.BARRIER_FOUND
     @test length(gen_prob.gfs) == 1
@@ -63,7 +49,7 @@ status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
     @test length(gen_prob.states_image) == 0
     @test length(gen_prob.links_unknown) == 0
     @test length(gen_prob.links_unknown_new) == 0
-    @test length(gen_prob.states_outside) == 1
+    @test length(gen_prob.states_outside) == 0
     @test length(gen_prob.states_outside_new) == 0
 end
 
@@ -89,11 +75,13 @@ xmax = 1e2
 iter_max = 3
 status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
+display(gen_prob.gfs)
+
 @testset "learn lyapunov 2: infeasible" begin
     @test status == CPB.BARRIER_INFEASIBLE
-    @test length(gen_prob.states_inside) == 2
-    @test length(gen_prob.states_image) == 1
-    @test length(gen_prob.states_outside_new) == 1
+    @test length(gen_prob.states_inside) == 3
+    @test length(gen_prob.states_image) == 2
+    @test length(gen_prob.states_outside_new) == 0
 end
 
 ################################################################################
@@ -123,7 +111,7 @@ status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
     @test status == CPB.BARRIER_INFEASIBLE
     @test length(gen_prob.states_inside) == 2
     @test length(gen_prob.states_image) == 0
-    @test length(gen_prob.states_outside_new) == 1
+    @test length(gen_prob.states_outside_new) == 0
 end
 
 prob = BarrierProblem(
@@ -136,7 +124,7 @@ prob = BarrierProblem(
 )
 
 xmax = 1e2
-iter_max = 5
+iter_max = 4
 status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
 @testset "learn lyapunov 3: found 1e-2" begin
@@ -160,10 +148,10 @@ prob = BarrierProblem(
 )
 
 xmax = 1e2
-iter_max = 5
+iter_max = 4
 status, gen_prob = CPB.find_barrier(prob, iter_max, solver, xmax=xmax)
 
-@testset "learn lyapunov 3: found 1e-3" begin
+@testset "learn lyapunov 3: found 1e-1" begin
     @test status == CPB.BARRIER_FOUND
     @test length(gen_prob.gfs) ≥ 1
     @test any(

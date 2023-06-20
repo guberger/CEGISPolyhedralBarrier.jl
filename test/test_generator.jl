@@ -29,6 +29,7 @@ N = 1
 prob = GeneratorProblem(
     N,
     [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [GenForm(1, AffForm([1.0], -10.0))], # gfs_safe
     [0], # indices_new
     [State(1, [1.0])], # states_inside
     State[], # states_image
@@ -51,12 +52,15 @@ isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
 @testset "Generator: feasible" begin
     @test isreset
     @test issuccess
-    @test length(prob.gfs) == 3
+    @test length(prob.gfs) == 4
     @test prob.indices_new == collect(eachindex(prob.gfs))
     @test length(prob.states_inside) == 3
     @test length(prob.states_image) == 2
     @test length(prob.links_unknown) == 2
     @test length(prob.states_outside) == 1
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -7), prob.gfs
+    )
     @test any(
         gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -6.5), prob.gfs
     )
@@ -69,11 +73,12 @@ isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
 end
 
 ################################################################################
-## Generator: infeasible
+## Generator: infeasible (point outside)
 
 prob = GeneratorProblem(
     N,
     [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [GenForm(1, AffForm([0.0], -10.0))], # gfs_safe
     [0], # indices_new
     [State(1, [1.0])], # states_inside
     State[], # states_image
@@ -93,7 +98,41 @@ prob = GeneratorProblem(
 
 isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
 
-@testset "Generator: infeasible" begin
+@testset "Generator: infeasible (point outside)" begin
+    @test isreset
+    @test !issuccess
+    @test prob.indices_new == collect(eachindex(prob.gfs))
+    @test length(prob.states_inside) == 3
+    @test length(prob.states_image) == 2
+end
+
+################################################################################
+## Generator: infeasible (safe)
+
+prob = GeneratorProblem(
+    N,
+    [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [GenForm(1, AffForm([1.0], -5.0))], # gfs_safe
+    [0], # indices_new
+    [State(1, [1.0])], # states_inside
+    State[], # states_image
+    [
+        Link(State(2, [4.0]), State(1, [4.0])),
+        Link(State(1, [9.0]), State(2, [9.0])),
+        Link(State(2, [9.0]), State(1, [9.0]))
+    ], # links_unknown
+    [
+        Link(State(1, [1.0]), State(2, [2.0]))
+    ], # links_unknown_new
+    [State(1, [-3.0])], # states_outside
+    State[], # states_outside_new
+    [empty_xs() for i = 1:4]..., # all xs_...
+    ϵ
+)
+
+isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
+
+@testset "Generator: infeasible (safe)" begin
     @test isreset
     @test !issuccess
     @test prob.indices_new == collect(eachindex(prob.gfs))
@@ -107,6 +146,7 @@ end
 prob = GeneratorProblem(
     N,
     [GenForm(0, AffForm([0.0], 0.0))], # gfs
+    [GenForm(1, AffForm([1.0], -10.0))], # gfs_safe
     [0], # indices_new
     State[], # states_inside
     [State(1, [1.0])], # states_image
@@ -135,6 +175,49 @@ isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
     @test length(prob.states_image) == 1
     @test length(prob.links_unknown) == 4
     @test length(prob.states_outside) == 2
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [-1] && gf.af.β ≈ -2), prob.gfs
+    )
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -3), prob.gfs
+    )
+end
+
+prob = GeneratorProblem(
+    N,
+    State[], # gfs
+    [GenForm(1, AffForm([1.0], -10.0))], # gfs_safe
+    [0], # indices_new
+    State[], # states_inside
+    [State(1, [1.0])], # states_image
+    [
+        Link(State(2, [4.0]), State(1, [4.0])),
+        Link(State(1, [9.0]), State(2, [9.0])),
+        Link(State(2, [9.0]), State(1, [9.0]))
+    ], # links_unknown
+    [
+        Link(State(1, [-5.0]), State(2, [2.0]))
+    ], # links_unknown_new
+    [State(1, [1.0])], # states_outside
+    [State(1, [5.0])], # states_outside_new
+    [empty_xs() for i = 1:4]..., # all xs_...
+    ϵ
+)
+
+isreset, issuccess = CPB.update_generator!(prob, βmax, solver)
+
+@testset "Generator: starts empty" begin
+    @test isreset
+    @test issuccess
+    @test length(prob.gfs) == 3
+    @test prob.indices_new == collect(eachindex(prob.gfs))
+    @test length(prob.states_inside) == 0
+    @test length(prob.states_image) == 1
+    @test length(prob.links_unknown) == 4
+    @test length(prob.states_outside) == 2
+    @test any(
+        gf -> (gf.loc == 1 && gf.af.a ≈ [1] && gf.af.β ≈ -5.5), prob.gfs
+    )
     @test any(
         gf -> (gf.loc == 1 && gf.af.a ≈ [-1] && gf.af.β ≈ -2), prob.gfs
     )

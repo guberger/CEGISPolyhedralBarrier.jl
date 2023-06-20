@@ -71,7 +71,7 @@ prob = BarrierProblem(
     N, pieces,
     State[], # gfs_inv
     [
-        [GenForm(loc, AffForm([0.0, -1.0], 0.0)) for loc = 1:4]...,
+        [GenForm(loc, AffForm([0.0, -1.0], -1.0)) for loc = 1:4]...,
         [GenForm(loc, AffForm([0.0, 1.0], -(Tstab + 2*dt))) for loc = 1:4]...,
         [GenForm(loc, AffForm([-1.0, 0.0], Tlo)) for loc in (1, 2)]...,
         [GenForm(loc, AffForm([1.0, 0.0], -Tup)) for loc in (1, 2)]...,
@@ -87,7 +87,8 @@ prob = BarrierProblem(
 )
 
 iter_max = Inf
-status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver, do_print=false)
+status, gen_prob = @time CPB.find_barrier(prob, iter_max,
+                                          solver, print_period=20)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration

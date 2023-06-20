@@ -88,7 +88,7 @@ prob = BarrierProblem(
     [
         GenForm(1, AffForm([-1, 0, 0, 0, (Slo - Tlo)/γ, (Slo - Tlo)/γ], +Tlo)),
         GenForm(1, AffForm([+1, 0, 0, 0, (Tup - Sup)/γ, (Tup - Sup)/γ], -Tup)),
-        GenForm(1, AffForm([0, -1, 0, 0, 0, 0], +0)),
+        GenForm(1, AffForm([0, -1, 0, 0, 0, 0], -1.0)),
         GenForm(1, AffForm([0, +1, 0, 0, 0, 0], -(Tstab + 2*dt)))
     ], # gfs_safe
     [State(1, x) for x in xlist_init], # states_init
@@ -98,7 +98,7 @@ prob = BarrierProblem(
 
 iter_max = Inf
 status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver,
-                                          do_print=false, βmax = 0.0)
+                                          print_period=15, βmax = 0.0)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration

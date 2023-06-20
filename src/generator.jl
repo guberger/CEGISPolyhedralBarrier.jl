@@ -1,6 +1,7 @@
 struct GeneratorProblem
     N::Int
     gfs::Vector{GenForm}
+    gfs_safe::Vector{GenForm}
     indices_new::Vector{Int}
     states_inside::Vector{State}
     states_image::Vector{State}
@@ -36,9 +37,46 @@ function make_separation_problem!(prob, state_out)
                              prob.xs_outside, prob.xs_outside_margin)
 end
 
+function compute_margin(prob, gf_safe)
+    dist::Float64 = Inf
+    for state in prob.states_inside
+        if state.loc == gf_safe.loc
+            dist = min(dist, -_eval(gf_safe.af, state.x))
+        end
+    end
+    for state in prob.states_image
+        if state.loc == gf_safe.loc
+            dist = min(dist, -_eval(gf_safe.af, state.x)/2)
+        end
+    end
+    return dist
+end
+
+function add_gfs_safe!(prob, βmax)
+    for gf_safe in prob.gfs_safe
+        r = compute_margin(prob, gf_safe)
+        na = norm(gf_safe.af.a, Inf)
+        if r < prob.ϵ*na
+            return false
+        end
+        r = min(r, βmax*na)
+        af = AffForm(gf_safe.af.a, gf_safe.af.β + r*norm(gf_safe.af.a, Inf))
+        push!(prob.gfs, GenForm(gf_safe.loc, af))
+        push!(prob.indices_new, length(prob.gfs))
+    end
+    return true
+end
+
 function update_generator!(prob::GeneratorProblem, βmax, solver)
     isreset = false
     empty!(prob.indices_new)
+    if isempty(prob.gfs)
+        isreset = true
+        issuccess = add_gfs_safe!(prob, βmax)
+        if !issuccess
+            return isreset, false
+        end
+    end
     while !isempty(prob.states_outside_new) || !isempty(prob.links_unknown_new)
         while !isempty(prob.states_outside_new)
             state = pop!(prob.states_outside_new)
@@ -67,6 +105,10 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
                 empty!(prob.links_unknown)
                 append!(prob.states_outside_new, prob.states_outside)
                 empty!(prob.states_outside)
+                issuccess = add_gfs_safe!(prob, βmax)
+                if !issuccess
+                    return isreset, false
+                end
                 break # starts with outside first
             else
                 push!(prob.gfs, GenForm(link.src.loc, af))

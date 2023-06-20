@@ -24,6 +24,7 @@ function build_generator(prob)
     return GeneratorProblem(
         prob.N,
         GenForm[], # gfs
+        copy(prob.gfs_safe), # gfs_safe
         Int[], # indices_new
         copy(prob.states_init), # states_inside
         State[], # states_image
@@ -36,33 +37,16 @@ function build_generator(prob)
     )
 end
 
-function build_verifier_safe(prob)
+function build_verifier(prob)
     return VerifierProblem(
         prob.N,
         prob.pieces,
         copy(prob.gfs_inv),
-        copy(prob.gfs_safe),
-        GenForm[], # gfs_bf
-        copy(prob.gfs_safe), # gfs_out
-        Dict{CexKey,CexVal}(), # cexs
-        CexKey[], # keys_todo
-        [AffForm[] for i = 1:3]..., # all afs_...
-        0.0
-    )
-end
-
-function build_verifier_cont(prob)
-    return VerifierProblem(
-        prob.N,
-        prob.pieces,
-        copy(prob.gfs_inv),
-        copy(prob.gfs_safe),
         GenForm[], # gfs_bf
         GenForm[], # gfs_out
         Dict{CexKey,CexVal}(), # cexs
         CexKey[], # keys_todo
-        [AffForm[] for i = 1:3]..., # all afs_...
-        1.0
+        [AffForm[] for i = 1:2]... # all afs_...
     )
 end
 
@@ -84,17 +68,74 @@ function find_cex_max(cexs::Dict{CexKey,CexVal})
     return keyopt, rmax
 end
 
+struct PrintRecorder
+    ninside::Vector{Int}
+    nimage::Vector{Int}
+    nunknown::Vector{Int}
+    noutside::Vector{Int}
+    ngf::Vector{Int}
+    ngf_new::Vector{Int}
+    gen_res::Vector{Char}
+    nkey::Vector{Int}
+    nkey_todo::Vector{Int}
+    rs::Vector{Float64}
+end
+
+function init_recorder()
+    return PrintRecorder(
+        [Int[] for i = 1:6]..., Char[], [Int[] for i = 1:2]..., Float64[]
+    )
+end
+
+function reset_recorder!(rec::PrintRecorder)
+    empty!(rec.ninside); empty!(rec.nimage);
+    empty!(rec.nunknown); empty!(rec.noutside);
+    empty!(rec.ngf); empty!(rec.ngf_new);
+    empty!(rec.gen_res);
+    empty!(rec.nkey); empty!(rec.nkey_todo); empty!(rec.rs)
+end
+
+function update_recorder!(rec::PrintRecorder, prob::GeneratorProblem)
+    push!(rec.ninside, length(prob.states_inside))
+    push!(rec.nimage, length(prob.states_image))
+    push!(rec.nunknown, length(prob.links_unknown))
+    push!(rec.noutside, length(prob.states_outside))
+    push!(rec.ngf, length(prob.gfs))
+    push!(rec.ngf_new, length(prob.indices_new))
+end
+
+function update_recorder!(rec::PrintRecorder, prob::VerifierProblem)
+    push!(rec.nkey, length(prob.cexs))
+    push!(rec.nkey_todo, length(prob.keys_todo))
+end
+
+function print_algo_state(iter::Int, rec::PrintRecorder)
+    print(
+        "Iter: ", iter, "\n",
+        " - ninside: ", rec.ninside, "\n",
+        " - nimage: ", rec.nimage, "\n",
+        " - nunknown: ", rec.nunknown, "\n",
+        " - noutside: ", rec.noutside, "\n",
+        " - ngf: ", rec.ngf, "\n",
+        " - ngf_new: ", rec.ngf_new, "\n",
+        " - gen_res: ", rec.gen_res, "\n",
+        " - nkey: ", rec.nkey, "\n",
+        " - nkey_todo: ", rec.nkey_todo, "\n"
+    )
+    if !isempty(rec.rs)
+        print(" - rs: ", minimum(rec.rs), " -- ", maximum(rec.rs), "\n")
+    end
+end
+
 ## Learn Barrier
 function find_barrier(prob::BarrierProblem,
                       iter_max, solver; # LP solver
                       βmax=1e3, xmax=1e3,
-                      do_print=true)
+                      print_period::Int=1)
     
     gen_prob = build_generator(prob)
-    verif_safe_prob = build_verifier_safe(prob)
-    reset_verifier!(verif_safe_prob)
-    verif_cont_prob = build_verifier_cont(prob)
-    reset_verifier!(verif_cont_prob)
+    verif_prob = build_verifier(prob)
+    rec = init_recorder()
 
     iter = 0
     isfound = false
@@ -102,62 +143,54 @@ function find_barrier(prob::BarrierProblem,
     
     while iter < iter_max && !isfound && issuccess
         iter += 1
-        do_print && print("Iter: ", iter)
 
         # Generation part
-        do_print && print("|--- Generate... ")
         isreset, issuccess = update_generator!(gen_prob, βmax, solver)
+        @assert isempty(gen_prob.links_unknown_new)
+        @assert isempty(gen_prob.states_outside_new)
+
+        update_recorder!(rec, gen_prob)
 
         if !issuccess
-            println("Failed")
             break
         end
 
-        # Verification safe part
-        copy!(verif_safe_prob.gfs_bf, gen_prob.gfs)
-        copy!(verif_cont_prob.gfs_bf, gen_prob.gfs)
-        copy!(verif_cont_prob.gfs_out, gen_prob.gfs)
+        # Verification part
+        copy!(verif_prob.gfs_bf, gen_prob.gfs)
+        copy!(verif_prob.gfs_out, gen_prob.gfs)
         if isreset
-            do_print && println("Reset")
-            reset_verifier!(verif_safe_prob)
-            reset_verifier!(verif_cont_prob)
+            reset_verifier!(verif_prob)
+            push!(rec.gen_res, 'R')
         else
-            do_print && println("Expanded")
-            add_keys_bf_infeasible!(verif_safe_prob, gen_prob.indices_new)
-            add_keys_bf_infeasible!(verif_cont_prob, gen_prob.indices_new)
-            add_keys_out_new!(verif_cont_prob, gen_prob.indices_new)
+            empty!(verif_prob.keys_todo)
+            add_keys_bf_infeasible!(verif_prob, gen_prob.indices_new)
+            add_keys_out_new!(verif_prob, gen_prob.indices_new)
+            push!(rec.gen_res, 'E')
         end
 
-        do_print && print("|--- Verify safe... ")
-        update_cexs!(verif_safe_prob, xmax, solver)
-        key, r = find_cex_max(verif_safe_prob.cexs)
-        if r > -prob.δ
-            state = verif_safe_prob.cexs[key].state
-            do_print && println("CE found: ", state.loc, ", ", state.x, ", ", r)
-            push!(gen_prob.states_outside_new, state)
-            continue
-        else
-            do_print && println("No CE found: ", r)
-        end
+        update_cexs!(verif_prob, xmax, solver)
+        update_recorder!(rec, verif_prob)
 
-        do_print && print("|--- Verify cont... ")
-        update_cexs!(verif_cont_prob, xmax, solver)
-        key, r = find_cex_max(verif_cont_prob.cexs)
+        key, r = find_cex_max(verif_prob.cexs)
+        push!(rec.rs, r)
+        
         if r > -prob.δ
-            state = verif_cont_prob.cexs[key].state
-            piece = verif_cont_prob.pieces[key.q]
-            do_print && println("CE found: ", state.loc, ", ", state.x, ", ", r)
+            state = verif_prob.cexs[key].state
+            piece = verif_prob.pieces[key.q]
             state_post = State(piece.loc_dst, piece.A*state.x + piece.b)
             link = Link(state, state_post)
             push!(gen_prob.links_unknown_new, link)
-            continue
         else
-            do_print && println("No CE found: ", r)
+            isfound = true
         end
 
-        # Passed the verifier
-        isfound = true
+        if print_period > 0 && mod(iter, print_period) == 0
+            print_algo_state(iter, rec)
+            reset_recorder!(rec)
+        end
     end
+
+    print_algo_state(iter, rec)
 
     if isfound
         println("Valid CLF: terminated")

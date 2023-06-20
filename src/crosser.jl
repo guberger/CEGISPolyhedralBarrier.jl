@@ -2,10 +2,8 @@ struct CrossingProblem
     N::Int
     A::Matrix{Float64}
     b::Vector{Float64}
-    afs_inside_fragile::Vector{AffForm}
-    afs_inside_margin::Vector{AffForm}
+    afs_inside::Vector{AffForm}
     afs_outside::Vector{AffForm}
-    λ::Float64
 end
 
 function _optimize_check_counterexample!(model)
@@ -24,14 +22,11 @@ function find_crosser(prob::CrossingProblem, xmax, solver)
     r = @variable(model, upper_bound=10*xmax)
     y = prob.A*x + prob.b
 
-    for af in prob.afs_inside_fragile
+    for af in prob.afs_inside
         @constraint(model, _eval(af, x) ≤ 0)
     end
-    for af in prob.afs_inside_margin
-        @constraint(model, _eval(af, x) ≤ -margin(af, 0, r))
-    end
     for af in prob.afs_outside
-        @constraint(model, _eval(af, y) ≥ prob.λ*margin(af, 0, r))
+        @constraint(model, _eval(af, y) ≥ norm(af.a, Inf)*r)
     end
 
     @objective(model, Max, r)

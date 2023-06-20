@@ -58,7 +58,7 @@ for Nt = 1:5
     println("# pieces: ", length(prob.pieces))
     println("# initial states: ", length(prob.states_init))
     status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver,
-                                              do_print=false)
+                                              print_period=10)
     display(status)
     @assert Int(status) ∈ (1, 3)
 end
