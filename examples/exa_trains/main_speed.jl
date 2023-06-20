@@ -71,7 +71,7 @@ for Nt = 1:4
     ax.plot(rec.nimage)
     ax.plot(rec.nunknown)
     ax.plot(rec.noutside)
-    ax2.plot(rec.rs, ls="dashed", lw=2, c="k")
+    ax2.plot(rec.times, ls="dashed", lw=2, c="k")
 end
 
 end # module

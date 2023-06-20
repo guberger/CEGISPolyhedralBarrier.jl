@@ -79,11 +79,13 @@ struct Recorder
     nkey::Vector{Int}
     nkey_todo::Vector{Int}
     rs::Vector{Float64}
+    times::Vector{Float64}
 end
 
 function init_recorder()
     return Recorder(
-        [Int[] for i = 1:6]..., Char[], [Int[] for i = 1:2]..., Float64[]
+        [Int[] for i = 1:6]..., Char[],
+        [Int[] for i = 1:2]..., [Float64[] for i = 1:2]...
     )
 end
 
@@ -123,7 +125,8 @@ function print_record(iter::Int, rec::Recorder, niter::Int)
         " - nkey: ", rec.nkey[end-niter+1:end], "\n",
         " - nkey_todo: ", rec.nkey_todo[end-niter+1:end], "\n",
         " - rs: ", minimum(i -> rec.rs[i], nrs-niter+1:nrs),
-        " -- ", maximum(i -> rec.rs[i], nrs-niter+1:nrs), "\n"
+        " -- ", maximum(i -> rec.rs[i], nrs-niter+1:nrs), "\n",
+        " - time: ", sum(rec.times), "\n"
     )
 end
 
@@ -143,6 +146,7 @@ function find_barrier(prob::BarrierProblem,
     
     while iter < iter_max && !isfound && issuccess
         iter += 1
+        time_start = time()
 
         # Generation part
         isreset, issuccess = update_generator!(gen_prob, βmax, solver)
@@ -183,6 +187,8 @@ function find_barrier(prob::BarrierProblem,
         else
             isfound = true
         end
+
+        push!(rec.times, time() - time_start)
 
         if print_period > 0 && mod(iter, print_period) == 0
             print_record(iter, rec, print_period)
