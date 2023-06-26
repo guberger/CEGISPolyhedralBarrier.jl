@@ -1,4 +1,4 @@
-module ExampleTrains
+module ExampleTrainsSpeed
 
 include("../utils/toolkit.jl")
 include("./problem_speed.jl")
@@ -25,7 +25,6 @@ nstep = 15
 ax.set_xlim((0, nstep))
 ax.set_xlabel("time")
 
-ax.set_ylim(-0.31, 0.31)
 ax.plot((0, nstep), (0, 0), c="k")
 ax.set_ylabel("v")
 
@@ -50,10 +49,11 @@ for state_init in prob.states_init
     end
 end
 
+# Solve !!!
 iter_max = Inf
 # iter_max = 5
 
-for Nt = 1:4
+for Nt = 1:1
     prob = build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
     println("# pieces: ", length(prob.pieces))
     println("# initial states: ", length(prob.states_init))
