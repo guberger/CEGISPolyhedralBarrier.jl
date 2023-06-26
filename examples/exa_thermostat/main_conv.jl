@@ -132,13 +132,6 @@ for (loc, loc_x) in enumerate(loc_xs_)
         GenForm(1, AffForm(
             gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_x*1.0)
         ))
-        for gf in prob.gfs_inv
-    ]
-    plot_level2D!(ax_[loc], gfs, 1, lims, fc="none", ec="blue")
-    gfs = [
-        GenForm(1, AffForm(
-            gf.af.a[1:2]*1.0, gf.af.β + dot(gf.af.a[3:6], loc_x*1.0)
-        ))
         for gf in gen_prob.gfs
     ]
     plot_level2D!(ax_[loc], gfs, 1, lims, fc="gold", ec="gold", fa=0.5, ew=2.5)
@@ -158,15 +151,12 @@ for state in gen_prob.states_image
     plot_point!(ax_[loc], state.x[1:2], mc="purple")
 end
 
-for state in gen_prob.states_outside
-    loc = find_loc(state)
-    plot_point!(ax_[loc], state.x[1:2], mc="red")
-end
-
 for link in gen_prob.links_unknown
     loc = find_loc(link.src)
     plot_point!(ax_[loc], link.src.x[1:2], mc="orange")
 end
+
+@assert isempty(gen_prob.states_outside)
 
 ## Algo illustration
 fig = figure(2, figsize=(10, 5))
@@ -175,6 +165,5 @@ ax = fig.add_subplot()
 ax.plot(rec.ninside)
 ax.plot(rec.nimage)
 ax.plot(rec.nunknown)
-ax.plot(rec.noutside)
 
 end # module

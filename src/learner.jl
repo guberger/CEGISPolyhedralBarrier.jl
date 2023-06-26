@@ -37,6 +37,23 @@ function build_generator(prob)
     )
 end
 
+function Base.copy(prob::GeneratorProblem)
+    return GeneratorProblem(
+        prob.N,
+        copy(prob.gfs), # gfs
+        copy(prob.gfs_safe), # gfs_safe
+        copy(prob.indices_new), # indices_new
+        copy(prob.states_inside), # states_inside
+        copy(prob.states_image), # states_image
+        copy(prob.links_unknown), # links_unknown
+        copy(prob.links_unknown_new), # links_unknown_new
+        copy(prob.states_outside), # states_outside
+        copy(prob.states_outside_new), # states_outside_new
+        [Vector{Float64}[] for i = 1:4]..., # all xs_...
+        prob.ϵ
+    )
+end
+
 function build_verifier(prob)
     return VerifierProblem(
         prob.N,
@@ -72,7 +89,7 @@ struct Recorder
     ninside::Vector{Int}
     nimage::Vector{Int}
     nunknown::Vector{Int}
-    noutside::Vector{Int}
+    nunknown_new::Vector{Int}
     ngf::Vector{Int}
     ngf_new::Vector{Int}
     gen_res::Vector{Char}
@@ -80,35 +97,29 @@ struct Recorder
     nkey_todo::Vector{Int}
     rs::Vector{Float64}
     times::Vector{Float64}
+    gen_probs::Vector{GeneratorProblem}
 end
 
 function init_recorder()
     return Recorder(
         [Int[] for i = 1:6]..., Char[],
-        [Int[] for i = 1:2]..., [Float64[] for i = 1:2]...
+        [Int[] for i = 1:2]..., [Float64[] for i = 1:2]...,
+        GeneratorProblem[]
     )
 end
 
-# function reset_recorder!(rec::Recorder)
-#     empty!(rec.ninside); empty!(rec.nimage);
-#     empty!(rec.nunknown); empty!(rec.noutside);
-#     empty!(rec.ngf); empty!(rec.ngf_new);
-#     empty!(rec.gen_res);
-#     empty!(rec.nkey); empty!(rec.nkey_todo); empty!(rec.rs)
-# end
-
-function update_recorder!(rec::Recorder, prob::GeneratorProblem)
+function update_recorder!(rec::Recorder, prob::GeneratorProblem, rec_gen)
+    @assert isempty(prob.states_outside)
+    @assert isempty(prob.states_outside_new)
     push!(rec.ninside, length(prob.states_inside))
     push!(rec.nimage, length(prob.states_image))
     push!(rec.nunknown, length(prob.links_unknown))
-    push!(rec.noutside, length(prob.states_outside))
+    push!(rec.nunknown_new, length(prob.links_unknown_new))
     push!(rec.ngf, length(prob.gfs))
     push!(rec.ngf_new, length(prob.indices_new))
-end
-
-function update_recorder!(rec::Recorder, prob::VerifierProblem)
-    push!(rec.nkey, length(prob.cexs))
-    push!(rec.nkey_todo, length(prob.keys_todo))
+    if rec_gen
+        push!(rec.gen_probs, copy(prob))
+    end
 end
 
 function print_record(iter::Int, rec::Recorder, niter::Int)
@@ -118,7 +129,7 @@ function print_record(iter::Int, rec::Recorder, niter::Int)
         " - ninside: ", rec.ninside[end-niter+1:end], "\n",
         " - nimage: ", rec.nimage[end-niter+1:end], "\n",
         " - nunknown: ", rec.nunknown[end-niter+1:end], "\n",
-        " - noutside: ", rec.noutside[end-niter+1:end], "\n",
+        " - nunknown_new: ", rec.nunknown_new[end-niter+1:end], "\n",
         " - ngf: ", rec.ngf[end-niter+1:end], "\n",
         " - ngf_new: ", rec.ngf_new[end-niter+1:end], "\n",
         " - gen_res: ", rec.gen_res[end-niter+1:end], "\n",
@@ -134,7 +145,7 @@ end
 function find_barrier(prob::BarrierProblem,
                       iter_max, solver; # LP solver
                       βmax=1e3, xmax=1e3,
-                      print_period::Int=1)
+                      print_period::Int=1, rec_gen::Bool=false)
     
     gen_prob = build_generator(prob)
     verif_prob = build_verifier(prob)
@@ -152,8 +163,6 @@ function find_barrier(prob::BarrierProblem,
         isreset, issuccess = update_generator!(gen_prob, βmax, solver)
         @assert isempty(gen_prob.links_unknown_new)
         @assert isempty(gen_prob.states_outside_new)
-
-        update_recorder!(rec, gen_prob)
 
         if !issuccess
             break
@@ -173,9 +182,10 @@ function find_barrier(prob::BarrierProblem,
         end
 
         update_cexs!(verif_prob, xmax, solver)
-        update_recorder!(rec, verif_prob)
+        push!(rec.nkey_todo, length(verif_prob.keys_todo))
 
         key, r = find_cex_max(verif_prob.cexs)
+        push!(rec.nkey, length(verif_prob.cexs))
         push!(rec.rs, r)
         
         if r > -prob.δ
@@ -189,6 +199,7 @@ function find_barrier(prob::BarrierProblem,
         end
 
         push!(rec.times, time() - time_start)
+        update_recorder!(rec, gen_prob, rec_gen)
 
         if print_period > 0 && mod(iter, print_period) == 0
             print_record(iter, rec, print_period)

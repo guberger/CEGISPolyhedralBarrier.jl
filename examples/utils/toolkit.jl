@@ -71,9 +71,8 @@ function extract_afs(gfs, loc)
     return afs
 end
 
-function plot_level2D!(ax, gfs, loc, lims;
+function plot_level2D!(ax, afs::Vector{AffForm}, lims;
                        fc="green", fa=0.5, ec="green", ew=1.0)
-    afs = extract_afs(gfs, loc)
     @assert all(af -> size(af.a) == (2,), afs)
     nrow = length(afs) + 4
     A = zeros(nrow, 2)
@@ -89,6 +88,12 @@ function plot_level2D!(ax, gfs, loc, lims;
         b[length(afs) + 2 + 2*(i - 1)] = +lims[2][i]
     end
     _plot_hrep2D!(ax, A, b, fc, fa, ec, ew)
+end
+
+function plot_level2D!(ax, gfs::Vector{GenForm}, loc, lims;
+                       fc="green", fa=0.5, ec="green", ew=1.0)
+    afs = extract_afs(gfs, loc)
+    plot_level2D!(ax, afs, lims, fc=fc, fa=fa, ec=ec, ew=ew)
 end
 
 function plot_point!(ax, point; mc="blue", ms=15)

@@ -114,11 +114,6 @@ for loc = 1:4
 end
 
 for loc = 1:4
-    plot_level2D!(ax_[loc], prob.gfs_inv, loc, lims,
-                  fc="none", ec="blue")
-end
-
-for loc = 1:4
     plot_level2D!(ax_[loc], gen_prob.gfs, loc, lims,
                   fc="gold", ec="gold", fa=0.5, ew=2.5)
 end
@@ -131,14 +126,12 @@ for state in gen_prob.states_image
     plot_point!(ax_[state.loc], state.x, mc="purple")
 end
 
-for state in gen_prob.states_outside
-    plot_point!(ax_[state.loc], state.x, mc="red")
-end
-
 for link in gen_prob.links_unknown
     state = link.src
     plot_point!(ax_[state.loc], state.x, mc="orange")
 end
+
+@assert isempty(gen_prob.states_outside)
 
 ## Algo illustration
 fig = figure(2, figsize=(10, 5))
@@ -147,6 +140,5 @@ ax = fig.add_subplot()
 ax.plot(rec.ninside)
 ax.plot(rec.nimage)
 ax.plot(rec.nunknown)
-ax.plot(rec.noutside)
 
 end # module

@@ -78,7 +78,6 @@ for Nt = 1:3
     ax.plot(rec.ninside)
     ax.plot(rec.nimage)
     ax.plot(rec.nunknown)
-    ax.plot(rec.noutside)
     ax2.plot(rec.times, ls="dashed", lw=2, c="k")
 end
 
