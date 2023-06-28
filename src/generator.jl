@@ -60,14 +60,14 @@ function add_gfs_safe!(prob, βmax)
             return false
         end
         r = min(r, βmax*na)
-        af = AffForm(gf_safe.af.a, gf_safe.af.β + r*norm(gf_safe.af.a, Inf))
+        af = AffForm(gf_safe.af.a, gf_safe.af.β + r*na)
         push!(prob.gfs, GenForm(gf_safe.loc, af))
         push!(prob.indices_new, length(prob.gfs))
     end
     return true
 end
 
-function update_generator!(prob::GeneratorProblem, βmax, solver)
+function update_generator!(prob::GeneratorProblem, βmax, solver; int=false)
     isreset = false
     empty!(prob.indices_new)
     if isempty(prob.gfs)
@@ -81,7 +81,7 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
         while !isempty(prob.states_outside_new)
             state = pop!(prob.states_outside_new)
             sep_prob = make_separation_problem!(prob, state)
-            af, r = find_separator(sep_prob, βmax, solver)
+            af, r = find_separator(sep_prob, βmax, solver, int=int)
             if r < prob.ϵ
                 push!(prob.states_outside_new, state)
                 return isreset, false
@@ -94,7 +94,7 @@ function update_generator!(prob::GeneratorProblem, βmax, solver)
         while !isempty(prob.links_unknown_new)
             link = pop!(prob.links_unknown_new)
             sep_prob = make_separation_problem!(prob, link.src)
-            af, r = find_separator(sep_prob, βmax, solver)
+            af, r = find_separator(sep_prob, βmax, solver, int=int)
             if r < prob.ϵ
                 isreset = true
                 empty!(prob.gfs)

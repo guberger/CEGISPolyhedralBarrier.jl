@@ -43,7 +43,7 @@ function compute_vertices_hrep(A, b)
     bounds = [(nothing, nothing) for i = 1:N+1]
     res = optimize.linprog(c_obj, A_ub=A_ub, b_ub=b, bounds=bounds)
     @assert res["success"] && res["status"] == 0
-    res["fun"] > 0 && return Vector{Float64}[]
+    res["fun"] > 0 && return nothing
     x = res["x"][1:N]
     hs = spatial.HalfspaceIntersection(A_b, x)
     points = collect.(eachrow(hs.intersections))
@@ -63,6 +63,7 @@ end
 
 function _plot_hrep3D!(ax, A, b, fc, fa, ec, ew)
     ch = compute_vertices_hrep(A, b)
+    isnothing(ch) && return
     verts_list = [
         [ch.points[i + 1, :] for i in simplex]
         for simplex in ch.simplices

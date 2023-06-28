@@ -16,13 +16,14 @@ function _optimize_check_separator!(model)
     optimize!(model)
     @assert termination_status(model) == OPTIMAL
     @assert primal_status(model) == FEASIBLE_POINT
-    @assert dual_status(model) == FEASIBLE_POINT
+    # @assert dual_status(model) == FEASIBLE_POINT
     return nothing
 end
 
-function find_separator(prob::SeparationProblem, βmax, solver)
+function find_separator(prob::SeparationProblem, βmax, solver; int=false)
     model = solver()
-    a = @variable(model, [1:prob.N], lower_bound=-1, upper_bound=1)
+    a = @variable(model, [1:prob.N],
+                  lower_bound=-1, upper_bound=1, integer=int)
     β = @variable(model, lower_bound=-βmax, upper_bound=βmax)
     r = @variable(model, upper_bound=10)
     af = AffFormVar(a, β)

@@ -5,7 +5,7 @@ include("../utils/toolkit.jl")
 N = 3 # x, y, t
 vmax = 3
 vmin = -3
-T = 8
+T = 6
 
 guards_xy = [
     [AffForm([-1, 1, 0], 1)],
@@ -65,28 +65,31 @@ for istep = 1:nstep
     state = next_state(pieces, state, tol_dom)
 end
 
+η = 0.1
+
 prob = BarrierProblem(
     N, pieces,
     GenForm[], # gfs_inv
     [
-        [GenForm(loc, AffForm([-1, 0, 0], vmin - 1)) for loc = 1:2]...,
-        [GenForm(loc, AffForm([1, 0, 0], -vmax - 1)) for loc = 1:2]...,
-        [GenForm(loc, AffForm([0, -1, 0], vmin - 1)) for loc = 1:2]...,
-        [GenForm(loc, AffForm([0, 1, 0], -vmax - 1)) for loc = 1:2]...,
-        GenForm(2, AffForm([1, -1, 0], -0.5)),
-        GenForm(2, AffForm([-1, 1, 0], -0.5))
+        [GenForm(loc, AffForm([-1, 0, 0], vmin - η)) for loc = 1:2]...,
+        [GenForm(loc, AffForm([1, 0, 0], -vmax - η)) for loc = 1:2]...,
+        [GenForm(loc, AffForm([0, -1, 0], vmin - η)) for loc = 1:2]...,
+        [GenForm(loc, AffForm([0, 1, 0], -vmax - η)) for loc = 1:2]...,
+        GenForm(2, AffForm([1, -1, 0], - η)),
+        GenForm(2, AffForm([-1, 1, 0], - η))
     ], # gfs_safe
     [
         State(1, [vmin, vmin, 0]), State(1, [vmin, vmax, 0]),
         State(1, [vmax, vmin, 0]), State(1, [vmax, vmax, 0])
     ], # states_init
-    0.001, # ϵ
+    η/10, # ϵ
     0.0 # δ
 )
 
 iter_max = Inf
 status, gen_prob, rec = CPB.find_barrier(prob, iter_max,
-                                         solver, print_period=10, int=true)
+                                         solver, print_period=10,
+                                         int_gen=true, int_verif=true)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration
@@ -108,32 +111,28 @@ for ax in ax_
     ax.tick_params(axis="both", labelsize=15)
 end
 
-gfs = vcat(gen_prob.gfs, prob.gfs_inv)
+gfs = [GenForm(gf.loc, AffForm(gf.af.a, ceil(gf.af.β))) for gf in gen_prob.gfs]
+display(gfs)
 
 for loc = 1:2
     plot_level3D!(ax_[loc], gfs, loc, lims,
                   fc="red", fa=0.1, ec="red", ew=0.5)
 end
 
-# for loc = 1:4
-#     plot_level2D!(ax_[loc], gen_prob.gfs, loc, lims,
-#                   fc="gold", ec="gold", fa=0.5, ew=2.5)
-# end
+for state in gen_prob.states_inside
+    plot_point!(ax_[state.loc], state.x, mc="blue")
+end
 
-# for state in gen_prob.states_inside
-#     plot_point!(ax_[state.loc], state.x, mc="blue")
-# end
+for state in gen_prob.states_image
+    plot_point!(ax_[state.loc], state.x, mc="purple")
+end
 
-# for state in gen_prob.states_image
-#     plot_point!(ax_[state.loc], state.x, mc="purple")
-# end
+for link in gen_prob.links_unknown
+    state = link.src
+    plot_point!(ax_[state.loc], state.x, mc="orange")
+end
 
-# for link in gen_prob.links_unknown
-#     state = link.src
-#     plot_point!(ax_[state.loc], state.x, mc="orange")
-# end
-
-# @assert isempty(gen_prob.states_outside)
+@assert isempty(gen_prob.states_outside)
 
 ## Algo illustration
 fig = figure(2, figsize=(10, 5))
