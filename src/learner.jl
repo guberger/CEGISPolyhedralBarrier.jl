@@ -144,7 +144,7 @@ end
 ## Learn Barrier
 function find_barrier(prob::BarrierProblem,
                       iter_max, solver; # LP solver
-                      βmax=1e3, xmax=1e3,
+                      βmax=1e3, xmax=1e3, int=false,
                       print_period::Int=1, rec_gen::Bool=false)
     
     gen_prob = build_generator(prob)
@@ -161,12 +161,13 @@ function find_barrier(prob::BarrierProblem,
 
         # Generation part
         isreset, issuccess = update_generator!(gen_prob, βmax, solver)
-        @assert isempty(gen_prob.links_unknown_new)
         @assert isempty(gen_prob.states_outside_new)
 
         if !issuccess
             break
         end
+
+        @assert isempty(gen_prob.links_unknown_new)
 
         # Verification part
         copy!(verif_prob.gfs_bf, gen_prob.gfs)
@@ -181,7 +182,7 @@ function find_barrier(prob::BarrierProblem,
             push!(rec.gen_res, 'E')
         end
 
-        update_cexs!(verif_prob, xmax, solver)
+        update_cexs!(verif_prob, xmax, solver, int=int)
         push!(rec.nkey_todo, length(verif_prob.keys_todo))
 
         key, r = find_cex_max(verif_prob.cexs)
@@ -206,7 +207,7 @@ function find_barrier(prob::BarrierProblem,
         end
     end
 
-    if mod(iter, print_period) > 0
+    if issuccess && mod(iter, print_period) > 0
         print_record(iter, rec, mod(iter, print_period))
     end
 

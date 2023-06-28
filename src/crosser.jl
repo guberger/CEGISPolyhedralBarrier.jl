@@ -6,19 +6,20 @@ struct CrossingProblem
     afs_outside::Vector{AffForm}
 end
 
-function _optimize_check_counterexample!(model)
+function _optimize_check_counterexample!(model, int)
     optimize!(model)
     isfeasible = primal_status(model) == FEASIBLE_POINT &&
-                 dual_status(model) == FEASIBLE_POINT &&
+                 (int || dual_status(model) == FEASIBLE_POINT) &&
                  termination_status(model) == OPTIMAL
     @assert isfeasible || (primal_status(model) == NO_SOLUTION &&
                            termination_status(model) == INFEASIBLE)
     return isfeasible
 end
 
-function find_crosser(prob::CrossingProblem, xmax, solver)
+function find_crosser(prob::CrossingProblem, xmax, solver; int=false)
     model = solver()
-    x = @variable(model, [1:prob.N], lower_bound=-xmax, upper_bound=xmax)
+    x = @variable(model, [1:prob.N],
+                  lower_bound=-xmax, upper_bound=xmax, integer=int)
     r = @variable(model, upper_bound=10*xmax)
     y = prob.A*x + prob.b
 
@@ -31,7 +32,7 @@ function find_crosser(prob::CrossingProblem, xmax, solver)
 
     @objective(model, Max, r)
 
-    isfeasible = _optimize_check_counterexample!(model)
+    isfeasible = _optimize_check_counterexample!(model, int)
 
     xopt = isfeasible ? value.(x) : fill(NaN, prob.N)
     ropt = isfeasible ? value(r) : -Inf

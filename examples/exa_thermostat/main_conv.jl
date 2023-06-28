@@ -84,7 +84,7 @@ end
 
 prob = BarrierProblem(
     N, pieces,
-    State[], # gfs_inv
+    GenForm[], # gfs_inv
     [
         GenForm(1, AffForm([-1, 0, 0, 0, (Slo - Tlo)/γ, (Slo - Tlo)/γ], +Tlo)),
         GenForm(1, AffForm([+1, 0, 0, 0, (Tup - Sup)/γ, (Tup - Sup)/γ], -Tup)),

@@ -64,12 +64,12 @@ function make_crossing_problem!(prob, piece, af_out)
                            prob.afs_inside, prob.afs_outside)
 end
 
-function update_cexs!(prob::VerifierProblem, xmax, solver)
+function update_cexs!(prob::VerifierProblem, xmax, solver; int=false)
     for key in prob.keys_todo
         piece, gf_out = prob.pieces[key.q], prob.gfs_out[key.i]
         @assert piece.loc_dst == gf_out.loc
         cross_prob = make_crossing_problem!(prob, piece, gf_out.af)
-        x, r, isfeas = find_crosser(cross_prob, xmax, solver)
+        x, r, isfeas = find_crosser(cross_prob, xmax, solver, int=int)
         if isfeas
             prob.cexs[key] = CexVal(State(piece.loc_src, x), r)
         else

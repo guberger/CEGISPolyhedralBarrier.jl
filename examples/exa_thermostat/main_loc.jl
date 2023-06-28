@@ -15,7 +15,7 @@ cf = 1.0
 dt = 0.03
 Tstab = 1.5 - dt
 
-mode_to_locs = [[1, 3], [2, 4]]
+mode_to_locs = [[1, 3], [2, 4]] # cool [trans, stab], heat [trans, stab]
 guards_temp = [
     [AffForm([-1.0, 0.0], Llo), AffForm([1.0, 0.0], -Llo)],
     [AffForm([-1.0, 0.0], Lup), AffForm([1.0, 0.0], -Lup)]
@@ -69,7 +69,7 @@ end
 
 prob = BarrierProblem(
     N, pieces,
-    State[], # gfs_inv
+    GenForm[], # gfs_inv
     [
         [GenForm(loc, AffForm([0.0, -1.0], -1.0)) for loc = 1:4]...,
         [GenForm(loc, AffForm([0.0, 1.0], -(Tstab + 2*dt))) for loc = 1:4]...,

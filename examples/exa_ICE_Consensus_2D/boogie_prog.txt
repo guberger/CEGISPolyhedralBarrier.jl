@@ -1,0 +1,27 @@
+// This function definition defines the invariant to be inferred
+function {:existential true} my_inv (t : int, x : int, y : int) : bool;
+
+procedure main()
+{
+    var t : int;
+    var x : int;
+    var y : int;
+    t := 0;
+    assume -3 <= x && x <= 3 && -3 <= y && y <= 3;
+
+    while (*)
+    invariant my_inv(t, x, y);
+    {
+        t := t + 1;
+        if (x > y)
+        {
+            x := x - 1;
+        }
+        else if (y > x)
+        {
+            y := y - 1;
+        }
+    }
+
+    assert (-3 <= x && x <= 3 && -3 <= y && y <= 3) && (t < 6 || x == y);
+}
