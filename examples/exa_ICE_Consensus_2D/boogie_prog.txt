@@ -25,3 +25,5 @@ procedure main()
 
     assert (-3 <= x && x <= 3 && -3 <= y && y <= 3) && (t < 6 || x == y);
 }
+
+// Time out with bound put on 10
