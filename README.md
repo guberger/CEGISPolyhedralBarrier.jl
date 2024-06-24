@@ -1,5 +1,3 @@
-# CEGISPolyhedralBarrier.jl
-
 | **Build Status** |
 |:----------------:|
 | [![Build Status][build-img]][build-url] |
@@ -11,5 +9,3 @@
 [codecov-url]: http://codecov.io/github/guberger/CEGISPolyhedralBarrier.jl?branch=main
 
 ![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/animation_rotating.gif)
-
-## References
