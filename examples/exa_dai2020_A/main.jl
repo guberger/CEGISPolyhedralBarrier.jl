@@ -1,4 +1,8 @@
-module ExampleDai2021
+module ExampleDai2020
+
+# Counter-example guided synthesis of neural network Lyapunov functions for piecewise linear systems
+# Example 1 (Section A)
+# https://ieeexplore.ieee.org/document/9304201
 
 include("../utils/toolkit.jl")
 
@@ -109,6 +113,11 @@ for (iter, gen_prob) in enumerate(rec.gen_probs)
         @assert state.loc == 1
         plot_point!(ax_[iter], state.x, mc="blue")
     end
+
+    for state in gen_prob.states_outside
+        @assert state.loc == 1
+        plot_point!(ax_[iter], state.x, mc="black")
+    end
     
     for state in gen_prob.states_image
         @assert state.loc == 1
@@ -126,8 +135,8 @@ for (iter, gen_prob) in enumerate(rec.gen_probs)
         @assert state.loc == 1
         plot_point!(ax_[iter], state.x, mc="red")
     end
-
-    @assert isempty(gen_prob.states_outside)
 end
+
+@assert isempty(gen_prob.states_outside)
 
 end # module

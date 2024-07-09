@@ -60,7 +60,7 @@ function add_gfs_safe!(prob, βmax)
             return false
         end
         r = min(r, βmax*na)
-        af = AffForm(gf_safe.af.a, gf_safe.af.β + r*na)
+        af = AffForm(gf_safe.af.a, gf_safe.af.β + r)
         push!(prob.gfs, GenForm(gf_safe.loc, af))
         push!(prob.indices_new, length(prob.gfs))
     end
