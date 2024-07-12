@@ -87,9 +87,9 @@ prob = BarrierProblem(
 )
 
 iter_max = Inf
-status, gen_prob, rec = CPB.find_barrier(prob, iter_max,
-                                         solver, print_period=10,
-                                         int_gen=true, int_verif=true)
+status, gen_prob, rec = @time CPB.find_barrier(prob, iter_max,
+                                               solver, print_period=10,
+                                               int_gen=true, int_verif=true)
 @assert status == CPB.BARRIER_FOUND
 
 # Illustration

@@ -60,13 +60,14 @@ end
 iter_max = Inf
 # iter_max = 5
 
-for Nt = 1:3
+for Nt = 4:5
+    println("Nt: ", Nt)
     prob = build_problem(Nt, α, β, lim_lo, lim_up, vinit,
                          xsafe_lo, xsafe_up, vsafe)
     println("# pieces: ", length(prob.pieces))
     println("# initial states: ", length(prob.states_init))
     status, gen_prob, rec = @time CPB.find_barrier(prob, iter_max, solver,
-                                                   print_period=10)
+                                                   print_period=100)
     display(status)
     @assert Int(status) ∈ (1, 3)
     ## Algo illustration

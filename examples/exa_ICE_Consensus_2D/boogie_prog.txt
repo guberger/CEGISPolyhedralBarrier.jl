@@ -7,7 +7,7 @@ procedure main()
     var x : int;
     var y : int;
     t := 0;
-    assume -3 <= x && x <= 3 && -3 <= y && y <= 3;
+    assume -10 <= x && x <= 10 && -10 <= y && y <= 10;
 
     while (*)
     invariant my_inv(t, x, y);
@@ -23,7 +23,7 @@ procedure main()
         }
     }
 
-    assert (-3 <= x && x <= 3 && -3 <= y && y <= 3) && (t < 6 || x == y);
+    assert (-10 <= x && x <= 10 && -10 <= y && y <= 10) && (t < 20 || x == y);
 }
 
 // Times out with bound put on 10
