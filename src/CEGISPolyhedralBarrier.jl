@@ -2,14 +2,13 @@ module CEGISPolyhedralBarrier
 
 using LinearAlgebra
 using JuMP
+using Printf
 
 struct AffForm
     a::Vector{Float64}
     β::Float64
 end
 _eval(af::AffForm, x) = dot(af.a, x) + af.β
-margin(af::AffForm, atol, rtol) = atol + rtol*norm(af.a, Inf)
-isless_margin(af::AffForm, x, atol, rtol) = _eval(af, x) ≤ margin(af, atol, rtol)
 
 struct GenForm
     loc::Int
@@ -29,7 +28,7 @@ struct State
     x::Vector{Float64}
 end
 
-struct Link
+struct Edge
     src::State
     dst::State
 end

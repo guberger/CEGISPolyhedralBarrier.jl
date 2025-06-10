@@ -13,219 +13,146 @@ struct BarrierProblem
     gfs_safe::Vector{GenForm}
     states_init::Vector{State}
     ϵ::Float64
-    δ::Float64
 end
 
-# :tol_dom=1e-8,
+# :tol=1e-8,
 # :βmax=1e3,
 # :xmax=1e3
 
-function build_generator(prob)
+function build_generator(prob, tol, βmax, isint)
+    gfs_safe = copy(prob.gfs_safe)
+    for (i, gf) in enumerate(gfs_safe)
+        na = norm(gf.af.a, Inf)
+        @assert na > 1e-5
+        gfs_safe[i] = GenForm(gf.loc, AffForm(gf.af.a / na, gf.af.β / na))
+    end
     return GeneratorProblem(
         prob.N,
         GenForm[], # gfs
-        copy(prob.gfs_safe), # gfs_safe
+        gfs_safe, # gfs_safe
         Int[], # indices_new
         copy(prob.states_init), # states_inside
         State[], # states_image
-        Link[], # links_unknown
-        Link[], # links_unknown_new
+        Edge[], # edges_unknown
+        Edge[], # edges_unknown_new
         State[], # states_outside
         State[], # states_outside_new
-        [Vector{Float64}[] for i = 1:4]..., # all xs_...
-        prob.ϵ
+        [Vector{Float64}[] for i = 1:3]..., # all xs_...
+        prob.ϵ, tol, βmax, isint
     )
 end
 
-function Base.copy(prob::GeneratorProblem)
-    return GeneratorProblem(
-        prob.N,
-        copy(prob.gfs), # gfs
-        copy(prob.gfs_safe), # gfs_safe
-        copy(prob.indices_new), # indices_new
-        copy(prob.states_inside), # states_inside
-        copy(prob.states_image), # states_image
-        copy(prob.links_unknown), # links_unknown
-        copy(prob.links_unknown_new), # links_unknown_new
-        copy(prob.states_outside), # states_outside
-        copy(prob.states_outside_new), # states_outside_new
-        [Vector{Float64}[] for i = 1:4]..., # all xs_...
-        prob.ϵ
-    )
-end
-
-function build_verifier(prob)
+function build_verifier(prob, xmax, isint)
+    gfs_inv = copy(prob.gfs_inv)
+    for (i, gf) in enumerate(gfs_inv)
+        na = norm(gf.af.a, Inf)
+        @assert na > 1e-5
+        gfs_inv[i] = GenForm(gf.loc, AffForm(gf.af.a / na, gf.af.β / na))
+    end
     return VerifierProblem(
         prob.N,
         prob.pieces,
-        copy(prob.gfs_inv),
+        gfs_inv,
         GenForm[], # gfs_bf
         GenForm[], # gfs_out
-        Dict{CexKey,CexVal}(), # cexs
-        CexKey[], # keys_todo
-        [AffForm[] for i = 1:2]... # all afs_...
+        Witness[], # witnesses
+        Tuple{Int,Int,Int}[], # keys_todo
+        [AffForm[] for i = 1:2]..., # all afs_...
+        xmax,
+        isint
     )
 end
 
 function reset_verifier!(prob::VerifierProblem)
-    empty!(prob.cexs)
+    empty!(prob.witnesses)
     empty!(prob.keys_todo)
     add_keys_out_new!(prob, eachindex(prob.gfs_out))
 end
 
-function find_cex_max(cexs::Dict{CexKey,CexVal})
-    keyopt::CexKey = CexKey(0, 0)
+function find_witness_max(prob::VerifierProblem)
+    kopt::Int = -1
     rmax::Float64 = -Inf
-    for (key, val) in cexs
-        if val.r > rmax
-            rmax = val.r
-            keyopt = key
+    for (k, witness) in enumerate(prob.witnesses)
+        if witness.isfeas && witness.r > rmax
+            rmax = witness.r
+            kopt = k
         end
     end
-    return keyopt, rmax
-end
-
-struct Recorder
-    ninside::Vector{Int}
-    nimage::Vector{Int}
-    nunknown::Vector{Int}
-    nunknown_new::Vector{Int}
-    ngf::Vector{Int}
-    ngf_new::Vector{Int}
-    gen_res::Vector{Char}
-    nkey::Vector{Int}
-    nkey_todo::Vector{Int}
-    rs::Vector{Float64}
-    times::Vector{Float64}
-    gen_probs::Vector{GeneratorProblem}
-end
-
-function init_recorder()
-    return Recorder(
-        [Int[] for i = 1:6]..., Char[],
-        [Int[] for i = 1:2]..., [Float64[] for i = 1:2]...,
-        GeneratorProblem[]
-    )
-end
-
-function update_recorder!(rec::Recorder, prob::GeneratorProblem, rec_gen)
-    @assert isempty(prob.states_outside)
-    @assert isempty(prob.states_outside_new)
-    push!(rec.ninside, length(prob.states_inside))
-    push!(rec.nimage, length(prob.states_image))
-    push!(rec.nunknown, length(prob.links_unknown))
-    push!(rec.nunknown_new, length(prob.links_unknown_new))
-    push!(rec.ngf, length(prob.gfs))
-    push!(rec.ngf_new, length(prob.indices_new))
-    if rec_gen
-        push!(rec.gen_probs, copy(prob))
-    end
-end
-
-function print_record(iter::Int, rec::Recorder, niter::Int)
-    nrs = length(rec.rs)
-    print(
-        "Iter: ", iter, "\n",
-        " - ninside: ", rec.ninside[end-niter+1:end], "\n",
-        " - nimage: ", rec.nimage[end-niter+1:end], "\n",
-        " - nunknown: ", rec.nunknown[end-niter+1:end], "\n",
-        " - nunknown_new: ", rec.nunknown_new[end-niter+1:end], "\n",
-        " - ngf: ", rec.ngf[end-niter+1:end], "\n",
-        " - ngf_new: ", rec.ngf_new[end-niter+1:end], "\n",
-        " - gen_res: ", rec.gen_res[end-niter+1:end], "\n",
-        " - nkey: ", rec.nkey[end-niter+1:end], "\n",
-        " - nkey_todo: ", rec.nkey_todo[end-niter+1:end], "\n",
-        " - rs: ", minimum(i -> rec.rs[i], nrs-niter+1:nrs),
-        " -- ", maximum(i -> rec.rs[i], nrs-niter+1:nrs), "\n",
-        " - time: ", sum(rec.times), "\n"
-    )
+    return kopt, rmax
 end
 
 ## Learn Barrier
 function find_barrier(prob::BarrierProblem,
                       iter_max, solver; # LP solver
-                      βmax=1e3, xmax=1e3, int_gen=false, int_verif=false,
-                      print_period::Int=1, rec_gen::Bool=false)
-    
-    gen_prob = build_generator(prob)
-    verif_prob = build_verifier(prob)
-    rec = init_recorder()
-
+                      tol=1e-5, δ=1e-8,
+                      βmax=1e3, xmax=1e3,
+                      isint_gen=false, isint_verif=false)
+    gen_prob = build_generator(prob, tol, βmax, isint_gen)
+    verif_prob = build_verifier(prob, xmax, isint_verif)
     iter = 0
     isfound = false
     issuccess = true
     
     while iter < iter_max && !isfound && issuccess
         iter += 1
+        @printf("iter %4d: ", iter)
         time_start = time()
 
         # Generation part
-        isreset, issuccess = update_generator!(gen_prob, βmax, solver,
-                                               int=int_gen)
+        @printf("xs: [%d %d %d %d %d %d] ",
+                length(gen_prob.states_inside),
+                length(gen_prob.states_image),
+                length(gen_prob.edges_unknown),
+                length(gen_prob.edges_unknown_new),
+                length(gen_prob.states_outside),
+                length(gen_prob.states_outside_new))
+        isreset, issuccess = update_generator!(gen_prob, solver)
         @assert isempty(gen_prob.states_outside_new)
-
-        if !issuccess
-            break
-        end
-
-        @assert isempty(gen_prob.links_unknown_new)
+        issuccess || break
+        @assert isempty(gen_prob.edges_unknown_new)
+        @printf("reset: %d ", isreset)
 
         # Verification part
+        @printf("gfs: %d ", length(gen_prob.gfs))
         copy!(verif_prob.gfs_bf, gen_prob.gfs)
         copy!(verif_prob.gfs_out, gen_prob.gfs)
         if isreset
             reset_verifier!(verif_prob)
-            push!(rec.gen_res, 'R')
         else
             empty!(verif_prob.keys_todo)
             add_keys_bf_infeasible!(verif_prob, gen_prob.indices_new)
             add_keys_out_new!(verif_prob, gen_prob.indices_new)
-            push!(rec.gen_res, 'E')
         end
-
-        update_cexs!(verif_prob, xmax, solver, int=int_verif)
-        push!(rec.nkey_todo, length(verif_prob.keys_todo))
-
-        key, r = find_cex_max(verif_prob.cexs)
-        push!(rec.nkey, length(verif_prob.cexs))
-        push!(rec.rs, r)
-        
-        if r > -prob.δ
-            state = verif_prob.cexs[key].state
-            piece = verif_prob.pieces[key.q]
+        @printf("keys: %d ", length(verif_prob.keys_todo))
+        update_verifier!(verif_prob, solver)
+        kopt, ropt = find_witness_max(verif_prob)
+        @printf("ropt: %f ", ropt)
+        if ropt > -δ
+            witness = verif_prob.witnesses[kopt]
+            state = witness.state
+            piece = verif_prob.pieces[witness.q]
             state_post = State(piece.loc_dst, piece.A*state.x + piece.b)
-            link = Link(state, state_post)
-            push!(gen_prob.links_unknown_new, link)
+            edge = Edge(state, state_post)
+            push!(gen_prob.edges_unknown_new, edge)
         else
             isfound = true
         end
 
-        push!(rec.times, time() - time_start)
-        update_recorder!(rec, gen_prob, rec_gen)
-
-        if print_period > 0 && mod(iter, print_period) == 0
-            print_record(iter, rec, print_period)
-        end
-    end
-
-    if issuccess && mod(iter, print_period) > 0
-        print_record(iter, rec, mod(iter, print_period))
+        time_elapsed = time() - time_start
+        @printf("time: %f\n", time_elapsed)
     end
 
     if isfound
-        println("Valid CLF: terminated")
-        return BARRIER_FOUND, gen_prob, rec
+        @printf("Valid BF: terminated\n")
+        return BARRIER_FOUND, gen_prob
     end
-
     if !issuccess
-        println("No valid CLF: terminated")
-        return BARRIER_INFEASIBLE, gen_prob, rec
+        @printf("No valid BF: terminated\n")
+        return BARRIER_INFEASIBLE, gen_prob
     end
-
     if iter ≥ iter_max
-        println("\nMax iter exceeded: ", iter)
-        return MAX_ITER_REACHED, gen_prob, rec
+        @printf("\nMax iter exceeded: %d\n", iter)
+        return MAX_ITER_REACHED, gen_prob
     end
-
     error("Something bad")
 end
