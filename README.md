@@ -1,6 +1,13 @@
 ## Illustration
 
+Method
 ![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/animation_rotating.gif)
+
+Invariant for "examples/rotation.jl"
+![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_rotation_full.png)
+
+Invariant for "examples/liu2022_Fig1.jl"
+![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_liu2022_Fig1.png)
 
 ## Benchmarks
 

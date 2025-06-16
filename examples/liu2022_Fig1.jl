@@ -98,6 +98,7 @@ states_init_traj = vcat(states_init, gen_prob.states_inside)
 trajectories = build_trajectories(pieces, states_init_traj, 20, 1e-6)
 plot_trajectories2D!(ax, trajectories, 1)
 
+savefig(ax, "examples/figures/fig_liu2022_Fig1.png")
 display(ax)
 
 end # module
