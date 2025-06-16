@@ -1,7 +1,7 @@
 ## Benchmarks
 
 Cf. folder "examples".
-For our tool: just run the `.jl` file.
+For our tool, just run the `.jl` file.
 For `LoopInvGen`, use the `.sl` file.
 
 "rotation": very fast (LoopInvGen: N/A because reals)<br>
