@@ -1,6 +1,8 @@
 ## Benchmarks
 
-Cf. folder "examples/"
+Cf. folder "examples".
+For our tool: just run the `.jl` file.
+For `LoopInvGen`, use the `.sl` file.
 
 "rotation": very fast (LoopInvGen: N/A because reals)<br>
 "dai2020_SecIV_A": very fast (LoopInvGen: N/A because reals)<br>
