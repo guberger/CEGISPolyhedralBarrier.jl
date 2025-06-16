@@ -17,15 +17,36 @@ solver() = Model(optimizer_with_attributes(
     () -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag"=>false
 ))
 
-_isin(afs, x, rtol) = all(af -> CBF._eval(af, x) ≤ rtol*norm(af), afs)
+_isin(afs, x, tol) = all(af -> CPB._eval(af, x) ≤ tol*norm(af.a), afs)
 
-function next_state(pieces, state, tol_dom)
+function _next_states!(next_states, pieces, current_state, tol_dom)
+    loc, x = current_state.loc, current_state.x
     for piece in pieces
-        if piece.loc_src == state.loc && _isin(piece.afs_dom, state.x, tol_dom)
-            return State(piece.loc_dst, piece.A*state.x + piece.b)
+        if piece.loc_src == loc && _isin(piece.afs_dom, x, tol_dom)
+            push!(next_states, State(piece.loc_dst, piece.A*x + piece.b))
         end
     end
-    return State(-1, fill(NaN, length(state.x)))
+end
+
+function build_trajectories(pieces, states_init, nstep, tol_dom)
+    trajectories = [[state] for state in states_init]
+    next_trajectories = Vector{State}[]
+    next_states = State[]
+    for _ = 1:nstep
+        empty!(next_trajectories)
+        for traj in trajectories
+            empty!(next_states)
+            _next_states!(next_states, pieces, traj[end], tol_dom)
+            @assert !isempty(next_states)
+            for next_state in next_states
+                traj_ext = copy(traj)
+                push!(traj_ext, next_state)
+                push!(next_trajectories, traj_ext)
+            end
+        end
+        trajectories, next_trajectories = next_trajectories, trajectories
+    end
+    return trajectories
 end
 
 #-------------------------------------------------------------------------------
@@ -72,4 +93,24 @@ function plot_level2D!(ax, gfs::Vector{GenForm}, loc::Int, lims;
                        fc=:green, fa=0.5, ec=:green, ew=1.0)
     afs = extract_afs(gfs, loc)
     plot_level2D!(ax, afs, lims, fc=fc, fa=fa, ec=ec, ew=ew)
+end
+
+function plot_trajectories2D!(ax,
+                              trajectories::Vector{Vector{State}},
+                              loc::Int;
+                              lc=:black, mc=:black,
+                              markershape=:circle, lw=0.5, ms=2)
+    traj_proj = State[]
+    for traj in trajectories
+        empty!(traj_proj)
+        for state in traj
+            if state.loc == loc
+                push!(traj_proj, state)
+            end
+        end
+        isempty(traj_proj) && continue
+        x1s = [state.x[1] for state in traj_proj]
+        x2s = [state.x[2] for state in traj_proj]
+        plot!(ax, x1s, x2s, lc=lc, mc=mc, markershape=markershape, lw=lw, ms=ms)
+    end        
 end

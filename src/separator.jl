@@ -2,8 +2,7 @@ struct SeparationProblem
     N::Int
     xs_inside::Vector{Vector{Float64}}
     xs_inside_margin::Vector{Vector{Float64}}
-    xs_outside::Vector{Vector{Float64}}
-    ϵ::Float64
+    xs_outside_margin::Vector{Vector{Float64}}
     βmax::Float64
     isint::Bool
 end
@@ -31,12 +30,12 @@ function find_separator(prob::SeparationProblem, solver)
     af = AffFormVar(a, β)
 
     for x in prob.xs_inside
-        @constraint(model, _eval(af, x) + r ≤ 0)
+        @constraint(model, _eval(af, x) ≤ 0)
     end
     for x in prob.xs_inside_margin
-        @constraint(model, _eval(af, x) + r + prob.ϵ ≤ 0)
+        @constraint(model, _eval(af, x) + r ≤ 0)
     end
-    for x in prob.xs_outside
+    for x in prob.xs_outside_margin
         @constraint(model, _eval(af, x) - r ≥ 0)
     end
 

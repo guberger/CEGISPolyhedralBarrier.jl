@@ -19,7 +19,7 @@ end
 # :βmax=1e3,
 # :xmax=1e3
 
-function build_generator(prob, tol, βmax, isint)
+function build_generator(prob, βmax, isint)
     gfs_safe = copy(prob.gfs_safe)
     for (i, gf) in enumerate(gfs_safe)
         na = norm(gf.af.a, Inf)
@@ -35,10 +35,8 @@ function build_generator(prob, tol, βmax, isint)
         State[], # states_image
         Edge[], # edges_unknown
         Edge[], # edges_unknown_new
-        State[], # states_outside
-        State[], # states_outside_new
         [Vector{Float64}[] for i = 1:3]..., # all xs_...
-        prob.ϵ, tol, βmax, isint
+        prob.ϵ, βmax, isint
     )
 end
 
@@ -53,41 +51,24 @@ function build_verifier(prob, xmax, isint)
         prob.N,
         prob.pieces,
         gfs_inv,
-        GenForm[], # gfs_bf
-        GenForm[], # gfs_out
+        GenForm[], # gfs_new
+        GenForm[], # gfs_inside
+        GenForm[], # gfs_outside
+        Int[], # indices_inside_new
+        Int[], # indices_outside_new
         Witness[], # witnesses
         Tuple{Int,Int,Int}[], # keys_todo
         [AffForm[] for i = 1:2]..., # all afs_...
-        xmax,
-        isint
+        xmax, isint
     )
-end
-
-function reset_verifier!(prob::VerifierProblem)
-    empty!(prob.witnesses)
-    empty!(prob.keys_todo)
-    add_keys_out_new!(prob, eachindex(prob.gfs_out))
-end
-
-function find_witness_max(prob::VerifierProblem)
-    kopt::Int = -1
-    rmax::Float64 = -Inf
-    for (k, witness) in enumerate(prob.witnesses)
-        if witness.isfeas && witness.r > rmax
-            rmax = witness.r
-            kopt = k
-        end
-    end
-    return kopt, rmax
 end
 
 ## Learn Barrier
 function find_barrier(prob::BarrierProblem,
                       iter_max, solver; # LP solver
-                      tol=1e-5, δ=1e-8,
-                      βmax=1e3, xmax=1e3,
+                      δ=1e-8, βmax=1e3, xmax=1e3,
                       isint_gen=false, isint_verif=false)
-    gen_prob = build_generator(prob, tol, βmax, isint_gen)
+    gen_prob = build_generator(prob, βmax, isint_gen)
     verif_prob = build_verifier(prob, xmax, isint_verif)
     iter = 0
     isfound = false
@@ -99,33 +80,25 @@ function find_barrier(prob::BarrierProblem,
         time_start = time()
 
         # Generation part
-        @printf("xs: [%d %d %d %d %d %d] ",
+        @printf("xs: [%d %d %d %d] ",
                 length(gen_prob.states_inside),
                 length(gen_prob.states_image),
                 length(gen_prob.edges_unknown),
-                length(gen_prob.edges_unknown_new),
-                length(gen_prob.states_outside),
-                length(gen_prob.states_outside_new))
+                length(gen_prob.edges_unknown_new))
         isreset, issuccess = update_generator!(gen_prob, solver)
-        @assert isempty(gen_prob.states_outside_new)
         issuccess || break
         @assert isempty(gen_prob.edges_unknown_new)
         @printf("reset: %d ", isreset)
 
         # Verification part
-        @printf("gfs: %d ", length(gen_prob.gfs))
-        copy!(verif_prob.gfs_bf, gen_prob.gfs)
-        copy!(verif_prob.gfs_out, gen_prob.gfs)
-        if isreset
-            reset_verifier!(verif_prob)
-        else
-            empty!(verif_prob.keys_todo)
-            add_keys_bf_infeasible!(verif_prob, gen_prob.indices_new)
-            add_keys_out_new!(verif_prob, gen_prob.indices_new)
+        @printf("gfs: %d %d ",
+                length(gen_prob.gfs),
+                length(gen_prob.indices_new))
+        empty!(verif_prob.gfs_new)
+        for i in gen_prob.indices_new
+            push!(verif_prob.gfs_new, gen_prob.gfs[i])
         end
-        @printf("keys: %d ", length(verif_prob.keys_todo))
-        update_verifier!(verif_prob, solver)
-        kopt, ropt = find_witness_max(verif_prob)
+        kopt, ropt = update_verifier!(verif_prob, isreset, solver)
         @printf("ropt: %f ", ropt)
         if ropt > -δ
             witness = verif_prob.witnesses[kopt]
