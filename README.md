@@ -2,12 +2,15 @@
 
 Cf. folder "examples/"
 
-"rotation": very fast (LoopInvGen: N/A because reals)<br>
-"dai2020_SecIV_A": very fast (LoopInvGen: N/A because reals)<br>
-"LIA_simple1D": very fast (LoopInvGen: very fast)<br>
-"LIA_askew2D": very fast (LoopInvGen: very fast)<br>
-"LIA_consensus2D": medium fast (LoopInvGen: easy->fast, medium->slow, hard->timeout)<br>
-"liu2022_Fig1": medium fast (LoopInvGen: timeout)<br>
+"rotation": very fast (`LoopInvGen`: N/A because reals)<br>
+"dai2020_SecIV_A": very fast (`LoopInvGen`: N/A because reals)<br>
+"LIA_simple1D": very fast (`LoopInvGen`: very fast)<br>
+"LIA_askew2D": very fast (`LoopInvGen`: very fast)<br>
+"LIA_consensus2D": medium fast (`LoopInvGen`: easy->fast, medium->slow, hard->timeout)<br>
+"liu2022_Fig1": medium fast (`LoopInvGen`: timeout)<br>
+
+Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen
+Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker
 
 ## Illustrations
 
