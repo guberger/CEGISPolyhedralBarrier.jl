@@ -9,8 +9,8 @@ We occasionally also consider harder versions.
 
 | Case | Our | `LoopInvGen` | `Interproc` |
 | --- | --- | --- | --- |
-| rotation | very fast | N/A (reals) | to do |
-| dai2020_SecIV_A | very fast | N/A (reals) | to do
+| rotation | very fast | N/A (reals) | very fast |
+| dai2020_SecIV_A | very fast | N/A (reals) | very fast
 | LIA_simple1D | very fast | very fast | to do
 | LIA_askew2D | very fast | very fast | to do
 | LIA_consensus2D | fast | timeout | timeout

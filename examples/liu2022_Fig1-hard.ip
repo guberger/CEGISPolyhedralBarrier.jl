@@ -1,4 +1,4 @@
-var x:int, y:int;
+var x : int, y : int;
 begin
     x = 0;
     assume y >= 0 and y <= 50;

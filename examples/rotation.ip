@@ -1,0 +1,16 @@
+var x : real, y : real;
+begin
+    assume x >= -1 and x <= 1 and y >= -1 and y <= 1;
+    while true do
+        if y <= 0 then
+            x = 0.8090169943749475 * x - 0.5877852522924731 * y;
+            y = 0.5877852522924731 * x + 0.8090169943749475 * y;
+        else
+            x = 0.6090169943749475 * x - 0.5877852522924731 * y;
+            y = 0.5877852522924731 * x + 0.6090169943749475 * y;
+        endif;
+        if x < -2 or x > 2 or y < -2 or y > 2 then
+            fail;
+        endif;
+    done;
+end
