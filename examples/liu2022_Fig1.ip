@@ -1,0 +1,14 @@
+var x:int, y:int;
+begin
+    x = 0;
+    assume y >= 0 and y <= 50;
+    while x <= 99 do
+        x = x + 1;
+        if x >= 51 then
+            y = y + 1;
+        endif;
+        if x > 101 or y > 151 then
+            fail;
+        endif;
+    done;
+end

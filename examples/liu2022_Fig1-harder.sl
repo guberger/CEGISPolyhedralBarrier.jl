@@ -12,7 +12,7 @@
     )
 )
 (define-fun post_fun ((x Int) (y Int)) Bool
-    (and (<= x 101) (<= y 151))
+    (and (<= x 101) (<= y 101))
 )
 
 (inv-constraint inv_fun pre_fun trans_fun post_fun)
