@@ -1,0 +1,34 @@
+var x : int, y : int, t : int, q : int;
+begin
+    t = 0;
+    q = 0;
+    assume x >= -1 and x <= 1 and y >= -1 and y <= 1;
+    while true do
+        assume t >= 0 and q >= 0 and q <= 1;
+        if x > y then
+            x = x - 1;
+        endif;
+        if x < y then
+            y = y - 1;
+        endif;
+        if q == 0 then
+            assume t <= 19;
+            if t < 19 then
+                t = t + 1;
+            endif;
+            if t == 19 then
+                t = 20;
+                q = 1;
+            endif;
+        endif;
+        if q == 1 then
+            assume t == 20;
+        endif;
+        if x < -10 or x > 10 or y < -10 or y > 10 then
+            fail;
+        endif;
+        if q == 1 and (x > y or x < y) then
+            fail;
+        endif;
+    done;
+end
