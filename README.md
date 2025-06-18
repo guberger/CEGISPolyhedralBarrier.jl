@@ -1,3 +1,8 @@
+```julia
+> ] activate ./examples
+> ] instantiate
+> include("./examples/name_of_example.jl")
+```
 ## Benchmarks
 
 Cf. folder `examples`.<br>
