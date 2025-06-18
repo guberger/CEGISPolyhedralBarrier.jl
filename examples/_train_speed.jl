@@ -1,21 +1,20 @@
 using Combinatorics
 
-# hot(i, N)'*x[1:N] = x[i]
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
 function build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
     N = Nt + 1
-
+    
     # System
     pieces = Piece[]
-    for cases in Iterators.product([(-1, 0, 1) for i = 1:N]...)
+    for cases in Iterators.product([(-1, 0, +1) for i = 1:N]...)
         afs_dom = [
             AffForm([+ones(Nt); 0.0], 0.0),
             AffForm([-ones(Nt); 0.0], 0.0)
         ]
         A = Matrix{Float64}(I, N, N)
         b = zeros(N)
-        i1 = i2 = 1
+        i1 = i2 = -1
         for (i, case) in enumerate(cases) # dvcurr = vnext - vcurr
             if i < N
                 icurr = mod(i - 1, Nt) + 1
@@ -28,7 +27,7 @@ function build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
                     push!(afs_dom, AffForm(+hot(icurr, N), -lim_lo/α))
                     b[icurr] -= lim_lo
                     b[iprev] += lim_lo
-                else # lim_lo/α ≤ dvcurr ≤ lim_up/α --> vcurr += dvcurr*α
+                else # lim_lo/α ≤ dvcurr ≤ lim_up/α --> vcurr += dvcurr * α
                     push!(afs_dom, AffForm(-hot(icurr, N), +lim_lo/α))
                     push!(afs_dom, AffForm(+hot(icurr, N), -lim_up/α))
                     A[icurr, icurr] -= α
@@ -39,11 +38,13 @@ function build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
                     push!(afs_dom, AffForm(+hot(N, N), -float(Tstab - 2)))
                     push!(afs_dom, AffForm(-hot(N, N), 0.0))
                     b[N] = 1.0
+                    i1 = i2 = 1
                 elseif case == 1 # Trans & t ≥ Tstab - 1
                     push!(afs_dom, AffForm(-hot(N, N), +float(Tstab - 1)))
                     push!(afs_dom, AffForm(+hot(N, N), -float(Tstab - 1)))
                     b[N] = Tstab
                     A[N, N] = 0.0
+                    i1 = 1
                     i2 = 2
                 else # Stab
                     push!(afs_dom, AffForm(-hot(N, N), +float(Tstab)))
@@ -97,7 +98,6 @@ function build_problem(Nt, α, Tstab, lim_lo, lim_up, vinit, vsafes)
         GenForm[], # gfs_inv
         gfs_safe,
         states_init,
-        abs(vsafes[2])*α/5, # ϵ
-        1e-8 # δ
+        abs(vsafes[2]) * α / 5, # ϵ
     )
 end

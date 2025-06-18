@@ -1,15 +1,13 @@
 using Combinatorics
 
-# hot(i, N)'*x[1:N] = x[i]
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
-function build_problem(Nt, α, β, lim_lo, lim_up, vinit,
-                       xsafe_lo, xsafe_up, vsafe)
-    N = 2*Nt
+function build_problem(Nt, α, β, lim_lo, lim_up, vinit, xsafe_lo, xsafe_up, vsafe)
+    N = 2  *  Nt
 
     # System
     pieces = Piece[]
-    for cases in Iterators.product([(-1, 0, 1) for i = 1:Nt]...)
+    for cases in Iterators.product([(-1, 0, +1) for i = 1:Nt]...)
         afs_dom = [
             AffForm([+ones(Nt); zeros(Nt)], 0.0),
             AffForm([-ones(Nt); zeros(Nt)], 0.0),
@@ -24,20 +22,20 @@ function build_problem(Nt, α, β, lim_lo, lim_up, vinit,
         for (i, case) in enumerate(cases) # dxcurr = xnext - xcurr
             icurr = mod(i - 1, Nt) + 1
             iprev = mod(i - 2, Nt) + 1
-            h = α*hot(icurr, N) + β*hot(Nt + icurr, N)
-            if case == -1 # α*dxcurr + β*dvcurr ≥ lim_up --> vcurr += lim_up
+            h = α * hot(icurr, N) + β * hot(Nt + icurr, N)
+            if case == -1 # α * dxcurr + β * dvcurr ≥ lim_up --> vcurr += lim_up
                 push!(afs_dom, AffForm(-h, +lim_up))
                 b[icurr] -= lim_up/2
                 b[Nt + icurr] -= lim_up
                 b[iprev] += lim_up/2
                 b[Nt + iprev] += lim_up
-            elseif case == 1 # α*dxcurr + β*dvcurr ≤ lim_lo --> vcurr += lim_lo
+            elseif case == 1 # α * dxcurr + β * dvcurr ≤ lim_lo --> vcurr += lim_lo
                 push!(afs_dom, AffForm(+h, -lim_lo))
                 b[icurr] -= lim_lo/2
                 b[Nt + icurr] -= lim_lo
                 b[iprev] += lim_lo/2
                 b[Nt + iprev] += lim_lo
-            else # lim_lo ≤ α*dxcurr + β*dvcurr ≤ lim_up --> vcurr += α*dxcurr + β*dvcurr
+            else # lim_lo ≤ α * dxcurr + β * dvcurr ≤ lim_up --> vcurr += α * dxcurr + β * dvcurr
                 push!(afs_dom, AffForm(-h, +lim_lo))
                 push!(afs_dom, AffForm(+h, -lim_up))
                 A[icurr, icurr] -= α/2
@@ -66,7 +64,7 @@ function build_problem(Nt, α, β, lim_lo, lim_up, vinit,
         for i in sets
             x[Nt + i] = -vinit
         end
-        if Nt == 2*Nd
+        if Nt == 2 * Nd
             push!(states_init, State(1, x))
         else
             for i in sets
@@ -97,7 +95,6 @@ function build_problem(Nt, α, β, lim_lo, lim_up, vinit,
         GenForm[], # gfs_inv
         gfs_safe,
         states_init,
-        vsafe*α/5, # ϵ
-        1e-8 # δ
+        vsafe * α / 5, # ϵ
     )
 end

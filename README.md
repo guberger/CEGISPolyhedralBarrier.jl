@@ -11,24 +11,28 @@ For `LoopInvGen`, use the `.sl` file.
 For `Interproc`, use the `.ip` file.<br>
 **N.B.:** For `LoopInvGen` and `Interproc`, when the base case fails, we sometimes consider simpler versions (mainly to get a confidence that the program description is correct).
 We occasionally also consider harder versions.
+$n$ vars = (number of real variables, number of integer variables, number of locations)
 
-| Case | Our | `LoopInvGen` | `Interproc` |
-| --- | --- | --- | --- |
-| rotation | very fast | N/A (reals) | very fast |
-| dai2020_SecIV_A | very fast | N/A (reals) | very fast
-| LIA_simple1D | very fast | very fast | to do
-| LIA_askew2D | very fast | very fast | to do
-| LIA_consensus2D | fast | timeout | timeout
-||| simpler1: very fast | simpler: very fast
-||| simpler2: sometimes fast
-| liu2022_Fig1 | fast | very fast | very fast |
-||| harder: very fast | harder: very fast |
-| thermostat | fast | N/A (reals) | timeout |
-||| simpler1: very fast | simpler: very fast |
-||| simpler2: timeout |
-| roux2015_Eq3 | ~5min | N/A (reals) | to do |
-| roux2015_Eq4 | ~5min | N/A (reals) | to do |
-
+| Case | $n$ vars | Our | `LoopInvGen` | `Interproc` |
+| --- | --- | --- | --- | --- |
+| rotation | (2, 0, 1) | very fast | N/A (reals) | very fast |
+| dai2020_SecIV_A | (2, 0, 1) | very fast | N/A (reals) | very fast
+| LIA_simple1D | (0, 1, 1) | very fast | very fast | to do
+| LIA_askew2D | (0, 2, 1) | very fast | very fast | to do
+| LIA_consensus2D | (0, 3, 2) | fast | timeout | timeout
+|| same || simpler1: very fast | simpler: very fast
+|| same || simpler2: sometimes fast
+| liu2022_Fig1 | (0, 2, 1) | fast | very fast | very fast |
+|| same || harder: very fast | harder: very fast |
+| thermostat | (2, 0, 4) | fast | N/A (reals) | timeout |
+|| (0, 2, 4) || simpler1: very fast |
+|| (0, 2, 4) || simpler2: timeout |
+|| (0, 2, 4) ||| simpler: very fast |
+| roux2015_Eq3 | (4, 0, 1) | ~5min | N/A (reals) | to do |
+| roux2015_Eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
+| train_speed | (4, 0, 2) | ~30sec | N/A (reals) | to do |
+| train_distance | (4, 0, 1) | ~10sec | N/A (reals) | to do |
+|| (6, 0, 1) | ~30sec | N/A (reals) | to do |
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
 Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker

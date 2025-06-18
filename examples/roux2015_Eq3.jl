@@ -6,7 +6,6 @@ module Roux2015_Eq3
 
 include("./_preamble_.jl")
 
-# hot(i, N)'*x[1:N] = x[i]
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]
 
 N = 4
