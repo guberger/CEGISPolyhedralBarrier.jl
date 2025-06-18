@@ -17,7 +17,10 @@ We occasionally also consider harder versions.
 ||| simpler1: very fast | simpler: very fast
 ||| simpler2: sometimes fast
 | liu2022_Fig1 | fast | very fast | very fast |
-||| hard: very fast | hard: very fast |
+||| harder: very fast | harder: very fast |
+| thermostat | fast | N/A (reals) | to do |
+||| simpler1: very fast |
+||| simpler2: timeout |
 
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
