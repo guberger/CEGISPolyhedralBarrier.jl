@@ -31,8 +31,9 @@ $n$ vars = (number of real variables, number of integer variables, number of loc
 | roux2015_Eq3 | (4, 0, 1) | ~5min | N/A (reals) | to do |
 | roux2015_Eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
 | train_speed | (4, 0, 2) | ~30sec | N/A (reals) | to do |
+|| (5, 0, 2) | ~10min | N/A (reals) | to do |
 | train_distance | (4, 0, 1) | ~10sec | N/A (reals) | to do |
-|| (6, 0, 1) | ~30sec | N/A (reals) | to do |
+|| (6, 0, 1) | ~5min | N/A (reals) | to do |
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
 Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker
