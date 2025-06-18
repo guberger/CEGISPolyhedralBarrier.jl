@@ -22,6 +22,7 @@ We occasionally also consider harder versions.
 ||| simpler1: very fast | simpler: very fast |
 ||| simpler2: timeout |
 | roux2015_Eq3 | ~5min | N/A (reals) | to do |
+| roux2015_Eq4 | ~5min | N/A (reals) | to do |
 
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
