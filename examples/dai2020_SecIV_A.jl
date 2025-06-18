@@ -5,7 +5,7 @@ module Dai2020_SecIV_A
 # Example 1 (Section IV.A)
 # https://ieeexplore.ieee.org/document/9304201
 
-include("./toolkit.jl")
+include("./_preamble_.jl")
 
 N = 2
 

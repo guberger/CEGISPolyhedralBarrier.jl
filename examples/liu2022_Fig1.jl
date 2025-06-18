@@ -4,7 +4,7 @@ module Liu2022_Fig1
 # Figure 1
 # https://jhc.sjtu.edu.cn/~hongfeifu/manuscripta.pdf
 
-include("./toolkit.jl")
+include("./_preamble_.jl")
 
 N = 2
 sm = 200

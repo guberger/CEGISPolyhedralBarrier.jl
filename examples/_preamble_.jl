@@ -3,8 +3,8 @@ using JuMP
 using Gurobi
 using Plots
 using Polyhedra
+using CEGISPolyhedralBarrier
 
-include("../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
 AffForm = CPB.AffForm
 GenForm = CPB.GenForm
@@ -48,8 +48,6 @@ function build_trajectories(pieces, states_init, nstep, tol_dom)
     end
     return trajectories
 end
-
-#-------------------------------------------------------------------------------
 
 function _plot_poly2D!(ax, P; kwargs...)
     plot!(ax, P; kwargs...)

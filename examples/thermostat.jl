@@ -1,6 +1,6 @@
 module Thermostat
 
-include("./toolkit.jl")
+include("./_preamble_.jl")
 
 N = 2
 Tlo = 0.0
