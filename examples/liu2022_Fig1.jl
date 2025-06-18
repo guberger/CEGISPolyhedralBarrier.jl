@@ -52,7 +52,7 @@ for piece in pieces
 end
 for state in states_init
     @assert state.loc == 1
-    plot!(ax, [state.x[1]], [state.x[2]], marker=:circle, c=:blue, ms=5)
+    plot!(ax, [state.x[1]], [state.x[2]], markershape=:circle, c=:blue, ms=5)
 end
 trajectories = build_trajectories(pieces, states_init, 100, 1e-6)
 plot_trajectories2D!(ax, trajectories, 1)
@@ -79,18 +79,18 @@ plot_level2D!(ax, gen_prob.gfs, 1, lims, fc=:gold, lc=:gold, fa=0.5)
 
 for state in gen_prob.states_inside
     @assert state.loc == 1
-    plot!(ax, [state.x[1]], [state.x[2]], marker=:dot, c=:blue, ms=5)
+    plot!(ax, [state.x[1]], [state.x[2]], markershape=:circle, c=:blue, ms=5)
 end
 
 for state in gen_prob.states_image
     @assert state.loc == 1
-    plot!(ax, [state.x[1]], [state.x[2]], marker=:dot, c=:purple, ms=5)
+    plot!(ax, [state.x[1]], [state.x[2]], markershape=:circle, c=:purple, ms=5)
 end
 
 for edge in gen_prob.edges_unknown
     state = edge.src
     @assert state.loc == 1
-    plot!(ax, [state.x[1]], [state.x[2]], marker=:dot, c=:red, ms=5)
+    plot!(ax, [state.x[1]], [state.x[2]], markershape=:circle, c=:red, ms=5)
 end
 
 trajectories = build_trajectories(pieces, gen_prob.states_inside, 20, 1e-6)

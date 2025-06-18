@@ -51,8 +51,8 @@ for state_init in prob.states_init
     for i = 1:Nt
         c = colors[mod(i - 1, length(colors)) + 1]
         times = 0:nstep
-        axx.plot(times, getindex.(x_traj, i), marker=".", ms=10, c=c, lw=2)
-        axv.plot(times, getindex.(x_traj, Nt + i), ls="--", marker=".", c=c)
+        axx.plot(times, getindex.(x_traj, i), markershape=".", ms=10, c=c, lw=2)
+        axv.plot(times, getindex.(x_traj, Nt + i), ls="--", markershape=".", c=c)
     end
 end
 
