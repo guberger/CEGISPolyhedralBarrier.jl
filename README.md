@@ -28,8 +28,8 @@ Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker
 Method<br>
 ![](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/animation_rotating.gif)
 
-Invariant for "examples/rotation.jl"<br>
+Invariant for "examples/rotation.jl" (red=unsafe region, yellow=invariant, dots and lines=sample points and trajectories)<br>
 <img src="https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_rotation_full.png" width="600">
 
-Invariant for "examples/liu2022_Fig1.jl"<br>
+Invariant for "examples/liu2022_Fig1.jl" (red=unsafe region, yellow=invariant, dots and lines=sample points and trajectories)<br>
 <img src="https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_liu2022_Fig1.png" width="600">
