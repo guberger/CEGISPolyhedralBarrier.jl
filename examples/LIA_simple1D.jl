@@ -1,6 +1,6 @@
 module LIA_simple1D
 
-include("./utils/toolkit.jl")
+include("./toolkit.jl")
 
 N = 1
 

@@ -1,6 +1,6 @@
 module ExampleRotation
 
-include("./utils/toolkit.jl")
+include("./toolkit.jl")
 
 N = 2
 
@@ -53,17 +53,16 @@ ax = plot(xlabel="x", ylabel="y",
 lims = [(-10, -10), (+10, +10)]
 plot!(ax, [0], [0], markershape=:xcross, ms=7, c=:black)
 for gf in gfs_safe
-    af = gf.af
-    af_out = AffForm(-af.a, -af.β)
-    plot_level2D!(ax, [af_out], lims, fa=1, fc=:red, ew=0)
+    gf_out = GenForm(gf.loc, AffForm(-gf.af.a, -gf.af.β))
+    plot_level2D!(ax, [gf_out], 1, lims, fa=1, fc=:red, lw=0)
 end
-# plot_level2D!(ax, gfs_safe, 1, lims, fa=0, ec=:green)
-# plot_level2D!(ax, gfs_inv, 1, lims, fa=0, ec=:yellow)
+# plot_level2D!(ax, gfs_safe, 1, lims, fa=0, lc=:green)
+# plot_level2D!(ax, gfs_inv, 1, lims, fa=0, lc=:yellow)
 for piece in pieces
     @assert piece.loc_src == 1
-    plot_level2D!(ax, piece.afs_dom, lims, fa=0, ec=:green)
+    plot_level2D!(ax, piece.afs_dom, lims, fa=0, lc=:green)
 end
-plot_level2D!(ax, gfs_init, 1, lims, fc=:blue, fa=0.1, ec=:blue)
+plot_level2D!(ax, gfs_init, 1, lims, fc=:blue, fa=0.1, lc=:blue)
 for state in states_init
     @assert state.loc == 1
     plot!(ax, [state.x[1]], [state.x[2]], marker=:circle, c=:blue, ms=5)
@@ -83,11 +82,11 @@ plot!(ax, [0], [0], markershape=:xcross, ms=7, c=:black)
 for gf in gfs_safe
     af = gf.af
     af_out = AffForm(-af.a, -af.β)
-    plot_level2D!(ax, [af_out], lims, fa=1, fc=:red, ew=0)
+    plot_level2D!(ax, [af_out], lims, fa=1, fc=:red, lw=0)
 end
 for piece in pieces
     @assert piece.loc_src == 1
-    plot_level2D!(ax, piece.afs_dom, lims, fa=0, ec=:green)
+    plot_level2D!(ax, piece.afs_dom, lims, fa=0, lc=:green)
 end
 
 display(ax)
@@ -106,8 +105,7 @@ status, gen_prob = CPB.find_barrier(prob, iter_max, solver)
 display(status)
 @assert status == CPB.BARRIER_FOUND
 
-plot_level2D!(ax, gen_prob.gfs, 1, lims,
-              fc="gold", ec="gold", fa=0.5)
+plot_level2D!(ax, gen_prob.gfs, 1, lims, fc=:gold, lc=:gold, fa=0.5)
 
 for state in gen_prob.states_inside
     @assert state.loc == 1
@@ -125,8 +123,7 @@ for edge in gen_prob.edges_unknown
     plot!(ax, [state.x[1]], [state.x[2]], marker=:dot, c=:red, ms=5)
 end
 
-states_init_traj = vcat(states_init, gen_prob.states_inside)
-trajectories = build_trajectories(pieces, states_init_traj, 20, 1e-6)
+trajectories = build_trajectories(pieces, gen_prob.states_inside, 20, 1e-6)
 plot_trajectories2D!(ax, trajectories, 1)
 
 savefig(ax, "examples/figures/fig_rotation_full.png")

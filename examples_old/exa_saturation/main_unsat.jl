@@ -4,7 +4,7 @@ module ExampleSaturation
 # Equation 3
 # https://hal.science/hal-01521987/file/Roux2015.pdf
 
-include("../utils/toolkit.jl")
+include("../toolkit.jl")
 
 # hot(i, N)'*x[1:N] = x[i]
 hot(i, N) = [j == i ? 1.0 : 0.0 for j = 1:N]

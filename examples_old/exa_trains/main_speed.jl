@@ -1,6 +1,6 @@
 module ExampleTrainsSpeed
 
-include("../utils/toolkit.jl")
+include("../toolkit.jl")
 include("./problem_speed.jl")
 
 using Random

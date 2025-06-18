@@ -4,7 +4,7 @@ using Gurobi
 using Plots
 using Polyhedra
 
-include("../../src/CEGISPolyhedralBarrier.jl")
+include("../src/CEGISPolyhedralBarrier.jl")
 CPB = CEGISPolyhedralBarrier
 AffForm = CPB.AffForm
 GenForm = CPB.GenForm
@@ -51,8 +51,8 @@ end
 
 #-------------------------------------------------------------------------------
 
-function _plot_poly2D!(ax, P, fc, fa, ec, ew)
-    plot!(ax, P, fc=fc, fa=fa, lc=ec, lw=ew)
+function _plot_poly2D!(ax, P; kwargs...)
+    plot!(ax, P; kwargs...)
 end
 
 function build_polyhedron(afs, lims, N)
@@ -82,35 +82,47 @@ function extract_afs(gfs, loc)
     return afs
 end
 
-function plot_level2D!(ax, afs::Vector{AffForm}, lims;
-                       fc=:green, fa=0.5, ec=:green, ew=1.0)
+function plot_level2D!(ax, afs::Vector{AffForm}, lims; lw=1, kwargs...)
     @assert all(af -> size(af.a) == (2,), afs)
     P = build_polyhedron(afs, lims, 2)
-    _plot_poly2D!(ax, P, fc, fa, ec, ew)
+    _plot_poly2D!(ax, P; lw=lw, kwargs...)
 end
 
 function plot_level2D!(ax, gfs::Vector{GenForm}, loc::Int, lims;
-                       fc=:green, fa=0.5, ec=:green, ew=1.0)
+                       lw=1, kwargs...)
     afs = extract_afs(gfs, loc)
-    plot_level2D!(ax, afs, lims, fc=fc, fa=fa, ec=ec, ew=ew)
+    plot_level2D!(ax, afs, lims; lw=lw, kwargs...)
 end
 
 function plot_trajectories2D!(ax,
                               trajectories::Vector{Vector{State}},
                               loc::Int;
-                              lc=:black, mc=:black,
-                              markershape=:circle, lw=0.5, ms=2)
+                              c=:black, markershape=:circle,
+                              lw=0.5, ms=2, kwargs...)
+    plot_trajectories2D!(ax, trajectories, (1, 2), (loc,);
+                         c=c, markershape=markershape,
+                         lw=lw, ms=ms, kwargs...)
+end
+
+function plot_trajectories2D!(ax,
+                              trajectories::Vector{Vector{State}},
+                              vars::Tuple{Int,Int},
+                              locs;
+                              c=:black, markershape=:circle,
+                              lw=0.5, ms=2, kwargs...)
     traj_proj = State[]
     for traj in trajectories
         empty!(traj_proj)
         for state in traj
-            if state.loc == loc
+            if state.loc ∈ locs
                 push!(traj_proj, state)
             end
         end
         isempty(traj_proj) && continue
-        x1s = [state.x[1] for state in traj_proj]
-        x2s = [state.x[2] for state in traj_proj]
-        plot!(ax, x1s, x2s, lc=lc, mc=mc, markershape=markershape, lw=lw, ms=ms)
-    end        
+        x1s = [state.x[vars[1]] for state in traj_proj]
+        x2s = [state.x[vars[2]] for state in traj_proj]
+        plot!(ax, x1s, x2s;
+              c=c, markershape=markershape,
+              lw=lw, ms=ms, kwargs...)
+    end
 end

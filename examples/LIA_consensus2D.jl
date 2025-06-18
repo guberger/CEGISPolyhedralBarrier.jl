@@ -1,12 +1,13 @@
 module LIA_consensus2D
 
-include("./utils/toolkit.jl")
+include("./toolkit.jl")
 
 N = 3 # x, y, t
 vmax = +10
 vmin = -10
 T = vmax - vmin
 
+mode_to_loc = Dict(["t"=>1, "s"=>2])
 guards_xy = Dict([
     "x"=>[AffForm([-1, +1, 0], +1)],
     "y"=>[AffForm([+1, -1, 0], +1)],
@@ -32,8 +33,8 @@ for (i, edge) in Iterators.product(("x", "y", "="),
                                    (("t", "t"), ("t", "s"), ("s", "s")))
     j1, j2 = edge
     afs_dom = [guards_xy[i]..., guards_t[edge]...]
-    q1 = j1 == "t" ? 1 : 2
-    q2 = j2 == "t" ? 1 : 2
+    q1 = mode_to_loc[j1]
+    q2 = mode_to_loc[j2]
     push!(pieces, Piece(afs_dom, q1, As[j2], bs[(i, j2)], q2))
 end
 

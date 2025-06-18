@@ -1,6 +1,6 @@
 module ExampleTrainsDistance
 
-include("../utils/toolkit.jl")
+include("../toolkit.jl")
 include("./problem_distance.jl")
 
 using Random
