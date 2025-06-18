@@ -26,10 +26,10 @@ Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker
 ## Illustrations
 
 Method<br>
-![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/animation_rotating.gif)
+![](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/animation_rotating.gif)
 
 Invariant for "examples/rotation.jl"<br>
-![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_rotation_full.png)
+<img src="https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_rotation_full.png" width="600">
 
 Invariant for "examples/liu2022_Fig1.jl"<br>
-![GUI](https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_liu2022_Fig1.png)
+<img src="https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_liu2022_Fig1.png" width="600">
