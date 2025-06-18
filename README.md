@@ -21,6 +21,7 @@ We occasionally also consider harder versions.
 | thermostat | fast | N/A (reals) | timeout |
 ||| simpler1: very fast | simpler: very fast |
 ||| simpler2: timeout |
+| roux2015_Eq3 | ~5min | N/A (reals) | to do |
 
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
@@ -36,3 +37,12 @@ Invariant for "examples/rotation.jl" (red=unsafe region, yellow=invariant, dots 
 
 Invariant for "examples/liu2022_Fig1.jl" (red=unsafe region, yellow=invariant, dots and lines=sample points and trajectories)<br>
 <img src="https://github.com/guberger/CEGISPolyhedralBarrier.jl/blob/main/fig_liu2022_Fig1.png" width="600">
+
+## TODOs
+
+- [x] Separate safe with margin (easy: just compute distance of safe face with
+  inside and image points).
+- [x] Maximize margin outside for contraction verifier (then: is counterexample only
+  if margin > 0).
+- [ ] Do not separate points that are already excluded by previous separator
+  i.e., remove redundant separators (only when reset).

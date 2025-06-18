@@ -124,3 +124,17 @@ function plot_trajectories2D!(ax,
               lw=lw, ms=ms, kwargs...)
     end
 end
+
+function plot_timeseries!(ax,
+                          trajectories::Vector{Vector{State}},
+                          var::Int,
+                          c=:black, markershape=:circle,
+                          lw=0.5, ms=2, kwargs...)
+    for traj in trajectories
+        xs = [state.x[var] for state in traj]
+        ts = collect(0:(length(xs) - 1))
+        plot!(ax, ts, xs;
+              c=c, markershape=markershape,
+              lw=lw, ms=ms, kwargs...)
+    end
+end
