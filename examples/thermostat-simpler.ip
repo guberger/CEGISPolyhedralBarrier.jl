@@ -1,0 +1,44 @@
+var temp : int, time : int, qtemp : int, qtime : int;
+begin
+    time = 0;
+    qtime = 0;
+    assume temp >= 15 and temp <= 25 and qtemp >= 0 and qtemp <= 1;
+    while true do
+        assume qtemp >= 0 and qtemp <= 1 and qtime >= 0 and qtime <= 1;
+        if qtemp == 0 then
+            if temp >= 19 then
+                temp = temp - 1;
+            else
+                temp = temp + 1;
+                qtemp = 1;
+            endif;
+        else
+            if temp <= 21 then
+                temp = temp + 1;
+            else
+                temp = temp - 1;
+                qtemp = 0;
+            endif;
+        endif;
+        if qtime == 0 then
+            if time <= 48 then
+                time = time + 1;
+            else
+                time = 50;
+                qtime = 1;
+            endif;
+        else
+            assume time >= 49;
+            time = 50;
+        endif;
+        if temp < 0 or temp > 30 then
+            fail;
+        endif;
+        if time < -1 or time > 51 then
+            fail;
+        endif;
+        if qtime == 1 and (temp <= 17 or temp >= 23) then
+            fail;
+        endif;
+    done;
+end

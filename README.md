@@ -18,8 +18,8 @@ We occasionally also consider harder versions.
 ||| simpler2: sometimes fast
 | liu2022_Fig1 | fast | very fast | very fast |
 ||| harder: very fast | harder: very fast |
-| thermostat | fast | N/A (reals) | to do |
-||| simpler1: very fast |
+| thermostat | fast | N/A (reals) | timeout |
+||| simpler1: very fast | simpler: very fast |
 ||| simpler2: timeout |
 
 

@@ -1,0 +1,44 @@
+var temp : real, time : real, qtemp : int, qtime : int;
+begin
+    time = 0;
+    qtime = 0;
+    assume temp >= 15 and temp <= 25 and qtemp >= 0 and qtemp <= 1;
+    while true do
+        assume qtemp >= 0 and qtemp <= 1 and qtime >= 0 and qtime <= 1;
+        if qtemp == 0 then
+            if temp >= 19 then
+                temp = 0.9704455335485082 * temp;
+            else
+                temp = 0.9704455335485082 * temp + 0.8866339935447554;
+                qtemp = 1;
+            endif;
+        else
+            if temp <= 21 then
+                temp = 0.9704455335485082 * temp + 0.8866339935447554;
+            else
+                temp = 0.9704455335485082 * temp;
+                qtemp = 0;
+            endif;
+        endif;
+        if qtime == 0 then
+            if time <= 1.5 - 0.03 then
+                time = time + 1;
+            else
+                time = 1.5;
+                qtime = 1;
+            endif;
+        else
+            assume time > 1.5 - 0.03;
+            time = 1.5;
+        endif;
+        if temp < 0 or temp > 30 then
+            fail;
+        endif;
+        if time < -1 or time > 1.5 + 2 * 0.03 then
+            fail;
+        endif;
+        if qtime == 1 and (temp < 18 or temp > 22) then
+            fail;
+        endif;
+    done;
+end
