@@ -12,3 +12,5 @@ begin
         endif;
     done;
 end
+
+/* settings: fbfb, w=1, d=2 */

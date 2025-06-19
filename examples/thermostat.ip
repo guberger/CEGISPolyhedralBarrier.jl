@@ -1,44 +1,47 @@
-var temp : real, time : real, qtemp : int, qtime : int;
+var x : real, t : real, p : int, q : int;
 begin
-    time = 0;
-    qtime = 0;
-    assume temp >= 15 and temp <= 25 and qtemp >= 0 and qtemp <= 1;
+    t = 0;
+    q = 0;
+    assume x >= 15 and x <= 25 and p >= 0 and p <= 1;
     while true do
-        assume qtemp >= 0 and qtemp <= 1 and qtime >= 0 and qtime <= 1;
-        if qtemp == 0 then
-            if temp >= 19 then
-                temp = 0.9704455335485082 * temp;
+        assume t >= 0 and p >= 0 and p <= 1 and q >= 0 and q <= 1;
+        if x < 0 or x > 30 then
+            fail;
+        endif;
+        if q == 1 and (x < 18 or x > 22) then
+            fail;
+        endif;
+        if p == 0 then
+            if x >= 19 then
+                x = 0.9704455335485082 * x;
+                p = 0;
             else
-                temp = 0.9704455335485082 * temp + 0.8866339935447554;
-                qtemp = 1;
+                x = 0.9704455335485082 * x + 0.8866339935447554;
+                p = 1;
             endif;
         else
-            if temp <= 21 then
-                temp = 0.9704455335485082 * temp + 0.8866339935447554;
+            if x <= 21 then
+                x = 0.9704455335485082 * x + 0.8866339935447554;
+                p = 1;
             else
-                temp = 0.9704455335485082 * temp;
-                qtemp = 0;
+                x = 0.9704455335485082 * x;
+                p = 0;
             endif;
         endif;
-        if qtime == 0 then
-            if time <= 1.5 - 0.03 then
-                time = time + 1;
+        if q == 0 then
+            if t <= 1.5 - 0.03 then
+                t = t + 0.03;
+                q = 0;
             else
-                time = 1.5;
-                qtime = 1;
+                t = 1.5;
+                q = 1;
             endif;
         else
-            assume time > 1.5 - 0.03;
-            time = 1.5;
-        endif;
-        if temp < 0 or temp > 30 then
-            fail;
-        endif;
-        if time < -1 or time > 1.5 + 2 * 0.03 then
-            fail;
-        endif;
-        if qtime == 1 and (temp < 18 or temp > 22) then
-            fail;
+            assume t >= 1.5 - 0.03;
+            t = 1.5;
+            q = 1;
         endif;
     done;
 end
+
+/* settings: fbfbfb, w=1, d=2 */

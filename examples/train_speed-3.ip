@@ -1,0 +1,83 @@
+var x1 : real, x2 : real, x3 : real,
+    t : real, q : int,
+    x1_ : real, x2_ : real, x3_ : real;
+begin
+    t = 0;
+    q = 0;
+    assume x1 >= -0.1 and x1 <= 0.1 and
+           x2 >= -0.1 and x2 <= 0.1 and
+           x3 >= -0.1 and x3 <= 0.1;
+    while true do
+        assume x1 + x2 + x3 == 0 and
+               t >= 0 and q >= 0 and q <= 1;
+        if q == 0 and (x1 < -0.3 or x1 > 0.3 or
+                       x2 < -0.3 or x2 > 0.3 or
+                       x3 < -0.3 or x3 > 0.3) then
+            fail;
+        endif;
+        if q == 1 and (x1 < -0.05 or x1 > 0.05 or
+                       x2 < -0.05 or x2 > 0.05 or
+                       x3 < -0.05 or x3 > 0.05) then
+            fail;
+        endif;
+        x1_ = x1;
+        x2_ = x2;
+        x3_ = x3;
+        /* x1 */
+        if x1_ >= 0.04 then
+            x1 = x1 - 0.02;
+            x3 = x3 + 0.02;
+        endif;
+        if x1_ <= -0.04 then
+            x1 = x1 + 0.02;
+            x3 = x3 - 0.02;
+        endif;
+        if x1_ > -0.04 and x1_ < 0.04 then
+            x1 = x1 - 0.5 * x1_;
+            x3 = x3 + 0.5 * x1_;
+        endif;
+        /* x2 */
+        if x2_ >= 0.04 then
+            x2 = x2 - 0.02;
+            x1 = x1 + 0.02;
+        endif;
+        if x2_ <= -0.04 then
+            x2 = x2 + 0.02;
+            x1 = x1 - 0.02;
+        endif;
+        if x2_ > -0.04 and x2_ < 0.04 then
+            x2 = x2 - 0.5 * x2_;
+            x1 = x1 + 0.5 * x2_;
+        endif;
+        /* x3 */
+        if x3_ >= 0.04 then
+            x3 = x3 - 0.02;
+            x2 = x2 + 0.02;
+        endif;
+        if x3_ <= -0.04 then
+            x3 = x3 + 0.02;
+            x2 = x2 - 0.02;
+        endif;
+        if x3_ > -0.04 and x3_ < 0.04 then
+            x3 = x3 - 0.5 * x3_;
+            x2 = x2 + 0.5 * x3_;
+        endif;
+        /* t */
+        if q == 0 then
+            assume t <= 11;
+            if t <= 10 then
+                t = t + 1;
+                q = 0;
+            else
+                t = 12;
+                q = 1;
+            endif;
+        else
+            assume t == 12;
+            t = 12;
+            q = 1;
+        endif;
+    done;
+end
+
+/* timeout with all settings */

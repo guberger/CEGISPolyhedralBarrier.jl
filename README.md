@@ -24,16 +24,16 @@ $n$ vars = (number of real variables, number of integer variables, number of loc
 || same || simpler2: sometimes fast
 | liu2022_Fig1 | (0, 2, 1) | fast | very fast | very fast |
 || same || harder: very fast | harder: very fast |
-| thermostat | (2, 0, 4) | fast | N/A (reals) | timeout |
+| thermostat | (2, 0, 4) | fast | N/A (reals) | very fast |
 || (0, 2, 4) || simpler1: very fast |
 || (0, 2, 4) || simpler2: timeout |
-|| (0, 2, 4) ||| simpler: very fast |
 | roux2015_Eq3 | (4, 0, 1) | ~5min | N/A (reals) | to do |
 | roux2015_Eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
-| train_speed | (4, 0, 2) | ~30sec | N/A (reals) | to do |
-|| (5, 0, 2) | ~10min | N/A (reals) | to do |
+| train_speed | (4, 0, 2) | ~30sec | N/A (reals) | timeout |
+|| (5, 0, 2) | ~10min | N/A (reals) | timeout |
+|| (3, 1, 2) ||| 3-simpler: timeout |
 | train_distance | (4, 0, 1) | ~10sec | N/A (reals) | to do |
-|| (6, 0, 1) | ~5min | N/A (reals) | to do |
+|| (6, 0, 1) | ~5min | N/A (reals) | to do|
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
 Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker
