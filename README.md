@@ -31,6 +31,7 @@ $n$ vars = (number of real variables, number of integer variables, number of loc
 | roux2015_Eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
 | train_speed | (4, 0, 2) | ~30sec | N/A (reals) | timeout |
 || (5, 0, 2) | ~10min | N/A (reals) | timeout |
+|| (6, 0, 2) | ~10h | N/A (reals) | timeout |
 || (3, 1, 2) ||| 3-simpler: timeout |
 | train_distance | (4, 0, 1) | ~10sec | N/A (reals) | to do |
 || (6, 0, 1) | ~5min | N/A (reals) | to do|

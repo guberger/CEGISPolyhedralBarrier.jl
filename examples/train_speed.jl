@@ -3,7 +3,7 @@ module TrainsSpeed
 include("./_preamble_.jl")
 include("./_train_speed.jl")
 
-Nt = 4
+Nt = 5
 α = 0.5
 Tstab = 12
 lim_up = +0.02
