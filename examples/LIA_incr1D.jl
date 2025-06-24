@@ -34,7 +34,7 @@ prob = BarrierProblem(
 
 iter_max = Inf
 status, gen_prob = CPB.find_barrier(prob, iter_max, solver,
-                                    δ=0, isint=true)
+                                    δ=0, isint_gen=true, isint_verif=true)
 display(status)
 @assert status == CPB.BARRIER_FOUND
 

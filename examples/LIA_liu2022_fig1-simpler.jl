@@ -28,7 +28,7 @@ pieces = [piece1, piece2]
 
 gfs_safe = [
     GenForm(1, AffForm([+1.0, 0.0], -101.0)),
-    GenForm(1, AffForm([0.0, +1.0], -101.0))
+    GenForm(1, AffForm([0.0, +1.0], -151.0))
 ]
 
 states_init = [State(1, [0.0, 0.0]), State(1, [0.0, 50.0])]

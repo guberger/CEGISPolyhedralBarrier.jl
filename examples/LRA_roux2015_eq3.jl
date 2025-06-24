@@ -20,6 +20,9 @@ urange = (-0.5, 0.0, 0.5)
 xmaxs = (2, 1, 1, 25)
 α = 0.9 # parameter [0,1] to tune: the closer to 0, the easier
 
+display(α * A)
+display(α * b)
+
 gfs_safe = GenForm[]
 for (i, xmax) in enumerate(xmaxs)
     push!(gfs_safe, GenForm(1, AffForm(-hot(i, N), -xmax)))
@@ -29,7 +32,7 @@ end
 afs_dom = AffForm[]
 pieces = Piece[]
 for u in urange
-    push!(pieces, Piece(afs_dom, 1, α*A, α*b*u, 1))
+    push!(pieces, Piece(afs_dom, 1, α * A, α * b * u, 1))
 end
 
 # Illustration partial
@@ -58,7 +61,7 @@ prob = BarrierProblem(
 )
 
 iter_max = Inf
-status, gen_prob = CPB.find_barrier(prob, iter_max, solver)
+status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver)
 display(status)
 @assert status == CPB.BARRIER_FOUND
 

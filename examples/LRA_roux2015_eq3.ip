@@ -1,0 +1,43 @@
+var x1 : real, x2 : real, x3 : real, x4 : real, u : real,
+    x1_ : real, x2_ : real, x3_ : real, x4_ : real,
+    q : int;
+begin
+    x1 = 0;
+    x2 = 0;
+    x3 = 0;
+    x4 = 0;
+    while true do
+        skip;
+        if x1 < -2 or x1 > 2 then
+            fail;
+        endif;
+        if x2 < -1 or x2 > 1 then
+            fail;
+        endif;
+        if x3 < -1 or x3 > 1 then
+            fail;
+        endif;
+        if x4 < -25 or x4 > 25 then
+            fail;
+        endif;
+        x1_ = x1;
+        x2_ = x2;
+        x3_ = x3;
+        x4_ = x4;
+        q = random;
+        assume q >= 0 and q <= 2;
+        if q == 0 then
+            u = -0.5;
+        endif;
+        if q == 1 then
+            u = 0;
+        endif;
+        if q == 2 then
+            u = 0.5;
+        endif;
+        x1 = 0.4491 * x1_ + -0.045 * x2_ + 0.9 * x3_ + 0.0 * x4_ + -0.9 * u;
+        x2 = 0.009 * x1_ + 0.9 * x2_ + 0.0 * x3_ + 0.0 * x4_ + 0.0 * u;
+        x3 = 0254016 * x1_ + 0.0 * x2_ + 0.8424 * x3_ + 0.009 * x4_ + 0.0576 * u;
+        x4 = 5.08032 * x1_ + 0.0 * x2_ + -11.529 * x3_ + 0.9 * x4_ + 11.52 * u;
+    done;
+end

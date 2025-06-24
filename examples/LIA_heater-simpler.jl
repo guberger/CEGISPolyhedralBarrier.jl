@@ -1,19 +1,17 @@
-module Thermostat
+module LRIA_heater
 
 include("./_preamble_.jl")
 
 N = 2
 Tlo = 0.0
-Ilo = 15.0
-Slo = 18.0
+Ilo = 16.0
+Slo = 17.0
 Llo = 19.0
 Lup = 21.0
-Sup = 22.0
-Iup = 25.0
+Sup = 23.0
+Iup = 24.0
 Tup = 30.0
-cf = 1.0
-dt = 0.03
-Tstab = 1.5 - dt
+Tstab = 49.0
 
 mode_to_loc = Dict(["dt"=>1, "ut"=>2, "ds"=>3, "us"=>4])
 guards_temp = Dict([
@@ -27,13 +25,12 @@ guards_time = Dict([
     "ts"=>AffForm([0.0, -1.0], +Tstab),
     "ss"=>AffForm([0.0, -1.0], +Tstab)
 ])
-α = exp(-cf*dt)
-As = Dict("t"=>[α 0; 0 1], "s"=>[α 0; 0 0])
+As = Dict("t"=>[1.0 0; 0 1.0], "s"=>[1.0 0; 0 0])
 bs = Dict([
-    "dt"=>[Tlo*(1 - α), dt],
-    "ds"=>[Tlo*(1 - α), Tstab + dt],
-    "ut"=>[Tup*(1 - α), dt],
-    "us"=>[Tup*(1 - α), Tstab + dt]
+    "dt"=>[-1.0, +1.0],
+    "ds"=>[-1.0, 50.0],
+    "ut"=>[+1.0, +1.0],
+    "us"=>[+1.0, 50.0]
 ])
 
 pieces = Piece[]
@@ -47,10 +44,10 @@ for (i1, i2, t_edge) in Iterators.product(
 end
 
 # Illustration partial
-nstep = 300
+nstep = 10
 DT = Tup - Tlo
 ax = plot(xlabel="time", ylabel="temp",
-          xlims=[0, Tstab + 3 * dt],
+          xlims=[0, Tstab + 3],
           ylims=[Tlo - 0.05*DT, Tup + 0.05*DT],
           dpi=500)
 for y in (Tlo, Slo, Llo, Lup, Sup, Tup)
@@ -64,7 +61,7 @@ plot_trajectories2D!(ax, trajectories, (2, 1), (3, 4), mc=:red, msc=:red)
 display(ax)
 
 # Solve !!!
-Tsup = Tstab + 2 * dt
+Tsup = Tstab + 2
 prob = BarrierProblem(
     N, pieces,
     GenForm[], # gfs_inv
@@ -80,11 +77,11 @@ prob = BarrierProblem(
         [State(loc, [Ilo, 0.0]) for loc in (1, 2)]...,
         [State(loc, [Iup, 0.0]) for loc in (1, 2)]...
     ], # states_init
-    dt/3, # ϵ
+    0.1, # ϵ
 )
 
 iter_max = Inf
-status, gen_prob = CPB.find_barrier(prob, iter_max, solver)
+status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver)
 display(status)
 @assert status == CPB.BARRIER_FOUND
 
@@ -92,11 +89,11 @@ display(status)
 ax_list = [
     plot(xlabel="temp", ylabel="time",
          xlims=[Tlo - 0.05*DT, Tup + 0.05*DT],
-         ylims=[-5 * dt, Tstab + 5 * dt],
+         ylims=[-5, Tstab + 5],
          title=string(loc))
     for loc = 1:4
 ]
-lims = ([Tlo - 2*DT, -Tstab - 5*dt], [Tup + 2*DT, 2*Tstab + 5*dt])
+lims = ([Tlo - 2*DT, -Tstab - 5], [Tup + 2*DT, 2*Tstab + 5])
 for loc = 1:4
     plot_level2D!(ax_list[loc], prob.gfs_safe, loc, lims, fa=0, lc=:red, lw=1.5)
 end

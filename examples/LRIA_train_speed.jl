@@ -3,7 +3,7 @@ module TrainsSpeed
 include("./_preamble_.jl")
 include("./_train_speed.jl")
 
-Nt = 5
+Nt = 3
 α = 0.5
 Tstab = 12
 lim_up = +0.02
@@ -30,7 +30,7 @@ display(plot(ax_list...))
 
 # Solve !!!
 iter_max = Inf
-status, gen_prob = CPB.find_barrier(prob, iter_max, solver)
+status, gen_prob = @time CPB.find_barrier(prob, iter_max, solver)
 display(status)
 @assert status == CPB.BARRIER_FOUND
 

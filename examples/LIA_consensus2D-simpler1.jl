@@ -48,7 +48,6 @@ prob = BarrierProblem(
         [GenForm(loc, AffForm([0, -1, 0], +vmin - η)) for loc = 1:2]...,
         [GenForm(loc, AffForm([0, +1, 0], -vmax - η)) for loc = 1:2]...,
         GenForm(2, AffForm([+1, -1, 0], -η)),
-        GenForm(2, AffForm([-1, +1, 0], -η))
     ], # gfs_safe
     [
         State(1, [vmin, vmin, 0]), State(1, [vmin, vmax, 0]),

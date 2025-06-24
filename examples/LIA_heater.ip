@@ -1,0 +1,47 @@
+var x : int, t : int, p : int, q : int;
+begin
+    t = 0;
+    q = 0;
+    assume x >= 15 and x <= 25 and p >= 0 and p <= 1;
+    while true do
+        assume t >= 0 and p >= 0 and p <= 1 and q >= 0 and q <= 1;
+        if x < 0 or x > 30 then
+            fail;
+        endif;
+        if q == 1 and (x < 17 or x > 23) then
+            fail;
+        endif;
+        if p == 0 then
+            if x >= 19 then
+                x = x - 1;
+                p = 0;
+            else
+                x = x + 1;
+                p = 1;
+            endif;
+        else
+            if x <= 21 then
+                x = x + 1;
+                p = 1;
+            else
+                x = x - 1;
+                p = 0;
+            endif;
+        endif;
+        if q == 0 then
+            if t <= 49 then
+                t = t + 1;
+                q = 0;
+            else
+                t = 50;
+                q = 1;
+            endif;
+        else
+            assume t >= 49;
+            t = 50;
+            q = 1;
+        endif;
+    done;
+end
+
+/* settings: fbfbfb, w=1, d=2 */
