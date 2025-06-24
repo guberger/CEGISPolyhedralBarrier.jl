@@ -1,4 +1,4 @@
-module ExampleRotation
+module LRA_rotation
 
 include("./_preamble_.jl")
 

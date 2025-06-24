@@ -1,4 +1,4 @@
-module Dai2020_SecIV_A
+module LRA_dai2020_sec4a
 
 # Dai et al., 2020, "Counter-example guided synthesis of neural network Lyapunov
 # functions for piecewise linear systems"

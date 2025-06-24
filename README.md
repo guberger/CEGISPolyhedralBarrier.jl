@@ -15,21 +15,21 @@ $n$ vars = (number of real variables, number of integer variables, number of loc
 
 | Case | $n$ vars | Our | `LoopInvGen` | `Interproc` |
 | --- | --- | --- | --- | --- |
-| rotation | (2, 0, 1) | very fast | N/A (reals) | very fast |
-| dai2020_SecIV_A | (2, 0, 1) | very fast | N/A (reals) | very fast
 | LIA_incr1D | (0, 1, 1) | very fast | very fast | to do
 | LIA_incr2D | (0, 2, 1) | very fast | very fast | to do
 | LIA_consensus2D | (0, 3, 2) | fast | timeout | timeout
 || same || simpler1: very fast |
 || same || simpler2: very fast |
-|| same ||| simpler3: very fast |
+|| same ||| simpler3: very fast
 | LIA_liu2022_Fig1 | (0, 2, 1) | fast (failed) | very fast | very fast |
 || same | simpler : fast |||
+| LRA_rotation | (2, 0, 1) | very fast | N/A (reals) | very fast |
+| LRA_dai2020_sec4a | (2, 0, 1) | very fast | N/A (reals) | very fast
+| LRA_roux2015_eq3 | (4, 0, 1) | ~5min | N/A (reals) | to do |
+| LRA_roux2015_eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
 | thermostat | (2, 0, 4) | fast | N/A (reals) | very fast |
 || (0, 2, 4) || simpler1: very fast |
 || (0, 2, 4) || simpler2: timeout |
-| roux2015_Eq3 | (4, 0, 1) | ~5min | N/A (reals) | to do |
-| roux2015_Eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
 | train_speed | (4, 0, 2) | ~30sec | N/A (reals) | timeout |
 || (5, 0, 2) | ~10min | N/A (reals) | timeout |
 || (6, 0, 2) | ~10h | N/A (reals) | timeout |
