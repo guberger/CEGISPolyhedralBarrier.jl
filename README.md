@@ -17,13 +17,14 @@ $n$ vars = (number of real variables, number of integer variables, number of loc
 | --- | --- | --- | --- | --- |
 | rotation | (2, 0, 1) | very fast | N/A (reals) | very fast |
 | dai2020_SecIV_A | (2, 0, 1) | very fast | N/A (reals) | very fast
-| LIA_simple1D | (0, 1, 1) | very fast | very fast | to do
-| LIA_askew2D | (0, 2, 1) | very fast | very fast | to do
+| LIA_incr1D | (0, 1, 1) | very fast | very fast | to do
+| LIA_incr2D | (0, 2, 1) | very fast | very fast | to do
 | LIA_consensus2D | (0, 3, 2) | fast | timeout | timeout
-|| same || simpler1: very fast | simpler: very fast
-|| same || simpler2: sometimes fast
-| liu2022_Fig1 | (0, 2, 1) | fast | very fast | very fast |
-|| same || harder: very fast | harder: very fast |
+|| same || simpler1: very fast |
+|| same || simpler2: very fast |
+|| same ||| simpler3: very fast |
+| LIA_liu2022_Fig1 | (0, 2, 1) | fast (failed) | very fast | very fast |
+|| same | simpler : fast |||
 | thermostat | (2, 0, 4) | fast | N/A (reals) | very fast |
 || (0, 2, 4) || simpler1: very fast |
 || (0, 2, 4) || simpler2: timeout |

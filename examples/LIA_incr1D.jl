@@ -1,4 +1,4 @@
-module LIA_simple1D
+module LIA_incr1D
 
 include("./_preamble_.jl")
 
