@@ -11,31 +11,27 @@ For `LoopInvGen`, use the `.sl` file.
 For `Interproc`, use the `.ip` file.<br>
 **N.B.:** For `LoopInvGen` and `Interproc`, when the base case fails, we sometimes consider simpler versions (mainly to get a confidence that the program description is correct).
 We occasionally also consider harder versions.
-$n$ vars = (number of real variables, number of integer variables, number of locations)
 
-| Case | $n$ vars | Our | `LoopInvGen` | `Interproc` |
-| --- | --- | --- | --- | --- |
-| LIA_incr1D | (0, 1, 1) | very fast | very fast | to do |
-| LIA_incr2D | (0, 2, 1) | very fast | very fast | to do |
-| LIA_consensus2D | (0, 3, 2) | fast | timeout | timeout |
-|| same || simpler1: very fast ||
-|| same || simpler2: very fast ||
-|| same ||| simpler3: very fast
-| LIA_liu2022_Fig1 | (0, 2, 1) | fast (failed) | very fast | very fast |
-|| same | simpler: fast |||
-| LRA_rotation | (2, 0, 1) | very fast | N/A (reals) | very fast |
-| LRA_dai2020_sec4a | (2, 0, 1) | very fast | N/A (reals) | very fast |
-| LRA_roux2015_eq3 | (4, 0, 1) | ~5min | N/A (reals) | to do |
-| LRA_roux2015_eq4 | (4, 0, 1) | ~5min | N/A (reals) | to do |
-| thermostat | (2, 0, 4) | fast | N/A (reals) | very fast |
-|| (0, 2, 4) || simpler1: very fast |
-|| (0, 2, 4) || simpler2: timeout |
-| train_speed | (4, 0, 2) | ~30sec | N/A (reals) | timeout |
-|| (5, 0, 2) | ~10min | N/A (reals) | timeout |
-|| (6, 0, 2) | ~10h | N/A (reals) | timeout |
-|| (3, 1, 2) ||| 3-simpler: timeout |
-| train_distance | (4, 0, 1) | ~10sec | N/A (reals) | to do |
-|| (6, 0, 1) | ~5min | N/A (reals) | to do|
+| Experiment                  | # Var Int | # Var Real | Our Time | Our # Iter | LoopInvGen Time | Interproc Time |
+|-----------------------------|-----------|------------|----------|------------|-----------------|----------------|
+| `LIA_incr1D`                | 1         | 0          | 1 sec    | 1          | 1 sec           | 1 sec          |
+| `LIA_incr2D`                | 2         | 0          | 1 sec    | 1          | 1 sec           | 1 sec          |
+| `LIA_consensus`             | 4         | 0          | 18 sec   | 100        | T/O             | T/O            |
+| `\|- simpler1 or 2`          | 4         | 0          | 12 sec   | 101        | ~3 sec          | 1 sec          |
+| `LIA_liu20222_fig1`         | 2         | 0          | 5 sec*   | 104        | 1 sec           | 1 sec          |
+| `\|- simpler`                | 2         | 0          | 8 sec    | 154        | 1 sec           | 1 sec          |
+| `LRA_rotation`             | 0         | 2          | 2 sec    | 24         | N/A             | 1 sec          |
+| `LRA_dai2020_sec4a`        | 0         | 2          | 1 sec    | 4          | N/A             | 1 sec          |
+| `LRA_roux2015_fig3`        | 0         | 4          | 550 sec  | 787        | N/A             | T/O            |
+| `LRA_roux2015_fig4`        | 0         | 4          | 1093 sec | 802        | N/A             | T/O            |
+| `LRIA_heater`              | 2         | 2          | 21 sec   | 160        | N/A             | 1 sec          |
+| `\|- LIA_heater`            | 4         | 0          | 9 sec    | 157        | T/O             | 1 sec          |
+| ` \|- simpler`             | 4         | 0          | 6 sec    | 162        | 1 sec           | 1 sec          |
+| `LIA_train_speed` (n=3)    | 1         | 4          | 5 sec    | 94         | N/A             | ??             |
+| `LIA_train_speed` (n=4)    | 1         | 5          | 51 sec   | 173        | N/A             | T/O            |
+| `LIA_train_speed` (n=5)    | 1         | 6          | 10 hour  | 956        | N/A             | T/O            |
+| `LIA_train_distance` (n=2) | 0         | 4          | 2 sec    | 21         | N/A             | ??             |
+| `LIA_train_distance` (n=3) | 0         | 6          | 600 sec  | 260        | N/A             | ??             |
 
 Instructions for `LoopInvGen`: https://github.com/SaswatPadhi/LoopInvGen<br>
 Instructions for `Interproc`: https://github.com/Edivad99/interproc-docker
